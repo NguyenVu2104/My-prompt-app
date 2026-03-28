@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Prompt Manager Pro</title>
+    <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-firestore-compat.js"></script>
+    <style>
+        :root { --bg: #f4f5f7; --card: #ffffff; --text: #172b4d; --border: #dfe1e6; --primary: #0052cc; --danger: #de350b; --success: #00875a; }
+        body { font-family: -apple-system, system-ui, sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 0; padding-bottom: 90px; }
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        .view { display: none; padding: 15px; max-width: 600px; margin: 0 auto; min-height: 100vh; }
+        .view.active { display: block; }
+        .card { background: var(--card); border-radius: 8px; padding: 15px; margin-bottom: 15px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+        h1, h2 { margin-top: 0; font-size: 20px; border-bottom: 2px solid var(--border); padding-bottom: 10px; margin-bottom: 15px; }
+        input[type="text"], input[type="number"], textarea { width: 100%; padding: 12px; border: 1px solid var(--border); border-radius: 6px; font-size: 16px; margin-bottom: 10px; outline: none; }
+        button.btn { padding: 12px 15px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 14px; }
+        button.btn-primary { background: var(--primary); color: white; }
+        button.btn-danger { background: var(--danger); color: white; }
+        button.btn-success { background: var(--success); color: white; }
+        button.btn-block { width: 100%; display: block; margin-bottom: 10px; font-size: 16px; height: 55px; }
+        .list-item { display: flex; align-items: center; background: var(--card); border: 1px solid var(--border); border-radius: 8px; margin-bottom: 10px; }
+        .list-item-content { flex-grow: 1; padding: 15px; font-weight: 500; font-size: 16px; }
+        .badge { background: var(--primary); color: white; padding: 2px 8px; border-radius: 12px; font-size: 12px; margin-left: 8px; }
+        .sort-controls { display: flex; flex-direction: column; border-left: 1px solid var(--border); }
+        .sort-btn { padding: 10px 15px; background: #fdfdfd; border: none; font-size: 14px; cursor: pointer; border-bottom: 1px solid var(--border); }
+        .tag-row { display: flex; align-items: center; padding: 12px; background: var(--card); border-bottom: 1px solid var(--border); }
+        .tag-row label { flex-grow: 1; margin-left: 12px; font-size: 16px; }
+        .tag-row input[type="number"] { width: 65px; margin-bottom: 0; text-align: center; }
+        .top-bar { display: flex; align-items: center; margin-bottom: 20px; }
+        .btn-back { background: none; border: none; font-size: 18px; color: var(--primary); font-weight: bold; padding: 10px; cursor: pointer; }
+        #fab-preview { display: none; position: fixed; bottom: 25px; right: 25px; width: 60px; height: 60px; border-radius: 30px; background: var(--primary); color: white; font-size: 26px; border: none; box-shadow: 0 5px 15px rgba(0,0,0,0.3); z-index: 100; align-items: center; justify-content: center; }
+        #modal-overlay { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.7); z-index: 200; align-items: center; justify-content: center; padding: 20px; }
+        .modal-content { background: var(--card); width: 100%; max-width: 450px; padding: 20px; border-radius: 12px; max-height: 90vh; overflow-y: auto; }
+        .storage-card { border: 1px solid var(--border); border-radius: 8px; padding: 12px; margin-bottom: 15px; }
+    </style>
+</head>
+<body>
+
+    <div id="view-menu" class="view active">
+        <h1>Prompt Manager</h1>
+        <button class="btn btn-primary btn-block" onclick="navigate('groups')">✏️ Create New Prompt</button>
+        <button class="btn btn-block" onclick="navigate('storage')">💾 Saved Storage</button>
+        <button id="btnSync" class="btn btn-success btn-block" onclick="syncAndPurge()">☁️ Đồng bộ & Tẩy uế (Purge)</button>
+        <button class="btn btn-block" onclick="navigate('data')">⚙️ Settings & Tools</button>
+    </div>
+
+    <div id="view-groups" class="view">
+        <div class="top-bar"><button class="btn-back" onclick="goBack()">❮ Menu</button><h2>Chọn Nhóm</h2></div>
+        <div id="ui-groups"></div>
+        <div class="card" style="display:flex; gap:8px;"><input type="text" id="newGroupName" placeholder="Tên nhóm..."><button class="btn btn-primary" onclick="addGroup()">+ Nhóm</button></div>
+    </div>
+
+    <div id="view-tags" class="view">
+        <div class="top-bar"><button class="btn-back" onclick="goBack()">❮ Quay lại</button><h2 id="current-group-name">Tags</h2></div>
+        <div id="ui-tags"></div>
+        <div class="card" style="display:flex; gap:8px;"><input type="text" id="newTagName" placeholder="Tên tag..."><button class="btn btn-primary" onclick="addTag()">+ Tag</button></div>
+    </div>
+
+    <div id="view-storage" class="view">
+        <div class="top-bar"><button class="btn-back" onclick="goBack()">❮ Menu</button><h2>Kho lưu trữ</h2></div>
+        <div id="ui-storage"></div>
+    </div>
+
+    <div id="view-data" class="view">
+        <div class="top-bar"><button class="btn-back" onclick="goBack()">❮ Menu</button><h2>Công cụ</h2></div>
+        <div class="card">
+            <h3>Nhập văn bản hàng loạt</h3>
+            <textarea id="bulkInput" placeholder="# Tên nhóm&#10;Tag 1" rows="5"></textarea>
+            <button class="btn btn-primary btn-block" onclick="parseBulkText()">Nhập ngay</button>
+        </div>
+        <div class="card">
+            <button class="btn btn-block" onclick="exportData('json')">Xuất JSON Backup</button>
+            <input type="file" accept=".json" onchange="importJSON(event)">
+        </div>
+    </div>
+
+    <button id="fab-preview" onclick="openModal()">P</button>
+
+    <div id="modal-overlay">
+        <div class="modal-content">
+            <h2>Preview & Options</h2>
+            <textarea id="outputResult" rows="5" readonly style="background:#f0f0f0;"></textarea>
+            <input type="text" id="saveName" placeholder="Đặt tên prompt...">
+            <div style="display:flex; gap:8px; margin-bottom:10px;">
+                <button class="btn btn-primary" style="flex:1" onclick="copyResult()">Sao chép</button>
+                <button class="btn btn-primary" style="flex:1" onclick="savePromptState()">Lưu Kho</button>
+            </div>
+            <button class="btn btn-danger btn-block" onclick="resetAllTags()">Reset Tags</button>
+            <button class="btn btn-block" onclick="closeModal()">Đóng</button>
+        </div>
+    </div>
+
+    <script>
+        // --- CẤU HÌNH FIREBASE (DÁN CỦA BẠN VÀO ĐÂY) ---
+	const firebaseConfig = {
+  	apiKey: "AIzaSyBIgCJ0luQ_-vooCcAB7OCYO-Hzi5I4rY0",
+  	authDomain: "my-prompt-app-ce6b2.firebaseapp.com",
+  	databaseURL: "https://my-prompt-app-ce6b2-default-rtdb.asia-southeast1.firebasedatabase.app",
+  	projectId: "my-prompt-app-ce6b2",
+  	storageBucket: "my-prompt-app-ce6b2.firebasestorage.app",
+  	messagingSenderId: "1057898416087",
+  	appId: "1:1057898416087:web:733504a126c9d46591ad92"
+	};
+
+        
+        // Khởi tạo Firebase phiên bản cũ (Compat) để chạy được trên file cục bộ
+        let db = null;
+        if (firebaseConfig.apiKey !== "DÁN_TẠI_ĐÂY") {
+            firebase.initializeApp(firebaseConfig);
+            db = firebase.firestore();
+        }
+        const DOC_ID = "my_secret_doc_id_9999";
+
+        // --- DỮ LIỆU ---
+        let localData = { groups: {}, tags: {}, prompts: {}, groupOrder: [] };
+        
+        function loadLocal() {
+            try {
+                const raw = localStorage.getItem('promptAppData');
+                if(raw) localData = JSON.parse(raw);
+            } catch(e) { console.error("Lỗi load dữ liệu"); }
+        }
+        function saveLocal() {
+            localStorage.setItem('promptAppData_backup', localStorage.getItem('promptAppData'));
+            localStorage.setItem('promptAppData', JSON.stringify(localData));
+        }
+
+        const genId = () => Date.now().toString(36) + Math.random().toString(36).substring(2);
+        const getTs = () => Date.now();
+
+        // --- ĐIỀU HƯỚNG (ĐÃ SỬA LỖI) ---
+        let activeGroupId = null;
+        window.navigate = function(view, param = null) {
+            activeGroupId = param;
+            history.pushState({ view, param }, "", "#" + (param ? view + "_" + param : view));
+            renderView(view);
+        };
+
+        window.goBack = () => history.back();
+
+        window.onpopstate = (e) => {
+            if(document.getElementById('modal-overlay').style.display === 'flex') {
+                document.getElementById('modal-overlay').style.display = 'none';
+                return;
+            }
+            const state = e.state || { view: 'menu' };
+            activeGroupId = state.param;
+            renderView(state.view);
+        };
+
+        function renderView(name) {
+            document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+            const target = document.getElementById('view-' + name);
+            if(target) target.classList.add('active');
+            
+            document.getElementById('fab-preview').style.display = (name === 'groups' || name === 'tags') ? 'flex' : 'none';
+            if(name === 'groups') renderGroups();
+            if(name === 'tags') renderTags();
+            if(name === 'storage') renderStorage();
+        }
+
+        // --- LOGIC HIỂN THỊ ---
+        window.renderGroups = () => {
+            const container = document.getElementById('ui-groups');
+            localData.groupOrder = localData.groupOrder.filter(id => localData.groups[id] && !localData.groups[id].isDeleted);
+            Object.keys(localData.groups).forEach(id => {
+                if(!localData.groups[id].isDeleted && !localData.groupOrder.includes(id)) localData.groupOrder.push(id);
+            });
+
+            container.innerHTML = localData.groupOrder.map((id, idx) => {
+                const g = localData.groups[id];
+                const count = Object.values(localData.tags).filter(t => t.groupId === id && !t.isDeleted && t.checked).length;
+                return `<div class="list-item" onclick="navigate('tags', '${id}')">
+                    <div class="list-item-content">${g.name} ${count > 0 ? `<span class="badge">${count}</span>` : ''}</div>
+                    <div class="sort-controls" onclick="event.stopPropagation()">
+                        <button class="sort-btn" onclick="moveGrp(${idx}, -1)">▲</button>
+                        <button class="sort-btn" onclick="moveGrp(${idx}, 1)">▼</button>
+                        <button class="sort-btn" style="color:red" onclick="deleteObj('groups', '${id}')">✕</button>
+                    </div></div>`;
+            }).join('');
+        };
+
+        window.renderTags = () => {
+            document.getElementById('current-group-name').innerText = localData.groups[activeGroupId].name;
+            const container = document.getElementById('ui-tags');
+            container.innerHTML = Object.keys(localData.tags).filter(id => localData.tags[id].groupId === activeGroupId && !localData.tags[id].isDeleted).map(id => {
+                const t = localData.tags[id];
+                return `<div class="tag-row">
+                    <input type="checkbox" id="chk_${id}" ${t.checked ? 'checked' : ''} onchange="updTag('${id}')">
+                    <label for="chk_${id}">${t.name}</label>
+                    <input type="number" id="w_${id}" step="0.1" value="${t.weight}" onchange="updTag('${id}')">
+                    <button class="btn" style="color:red; background:none" onclick="deleteObj('tags', '${id}')">✕</button></div>`;
+            }).join('');
+        };
+
+        // --- THAO TÁC (RESET, DELETE, ADD...) ---
+        window.updTag = (id) => {
+            localData.tags[id].checked = document.getElementById('chk_'+id).checked;
+            localData.tags[id].weight = parseFloat(document.getElementById('w_'+id).value) || 1.0;
+            localData.tags[id].timestamp = getTs();
+            saveLocal();
+        };
+        window.moveGrp = (idx, dir) => {
+            const arr = localData.groupOrder;
+            if(idx+dir < 0 || idx+dir >= arr.length) return;
+            [arr[idx], arr[idx+dir]] = [arr[idx+dir], arr[idx]];
+            saveLocal(); renderGroups();
+        };
+        window.deleteObj = (type, id) => {
+            if(!confirm("Xóa?")) return;
+            localData[type][id].isDeleted = true;
+            localData[type][id].timestamp = getTs();
+            saveLocal(); renderGroups(); renderTags();
+        };
+        window.addGroup = () => {
+            const name = document.getElementById('newGroupName').value.trim();
+            if(!name) return;
+            const id = genId();
+            localData.groups[id] = { name, timestamp: getTs(), isDeleted: false };
+            localData.groupOrder.push(id);
+            saveLocal(); renderGroups();
+            document.getElementById('newGroupName').value = "";
+        };
+        window.addTag = () => {
+            const name = document.getElementById('newTagName').value.trim();
+            if(!name) return;
+            localData.tags[genId()] = { groupId: activeGroupId, name, weight: 1.0, checked: false, timestamp: getTs(), isDeleted: false };
+            saveLocal(); renderTags();
+            document.getElementById('newTagName').value = "";
+        };
+
+        // --- PROMPT MODAL ---
+        window.openModal = () => {
+            const res = Object.values(localData.tags).filter(t => !t.isDeleted && t.checked).map(t => t.weight === 1.0 ? t.name : `(${t.name}:${t.weight})`);
+            document.getElementById('outputResult').value = res.join(", ");
+            document.getElementById('modal-overlay').style.display = 'flex';
+            history.pushState({ modal: true }, "", "#preview");
+        };
+        window.closeModal = () => { document.getElementById('modal-overlay').style.display = 'none'; if(history.state && history.state.modal) history.back(); };
+        window.copyResult = () => { navigator.clipboard.writeText(document.getElementById('outputResult').value); alert("Đã Copy!"); };
+        window.resetAllTags = () => {
+            Object.values(localData.tags).forEach(t => { t.checked = false; t.weight = 1.0; t.timestamp = getTs(); });
+            saveLocal(); closeModal(); renderGroups();
+        };
+
+        window.savePromptState = () => {
+            const name = document.getElementById('saveName').value.trim();
+            if(!name) return alert("Nhập tên!");
+            const state = {};
+            Object.keys(localData.tags).forEach(id => { if(localData.tags[id].checked) state[id] = localData.tags[id].weight; });
+            localData.prompts[genId()] = { name, content: document.getElementById('outputResult').value, state, timestamp: getTs(), isDeleted: false };
+            saveLocal(); closeModal(); alert("Đã lưu!");
+        };
+
+        window.renderStorage = () => {
+            document.getElementById('ui-storage').innerHTML = Object.keys(localData.prompts).filter(id => !localData.prompts[id].isDeleted).map(id => {
+                const p = localData.prompts[id];
+                return `<div class="storage-card"><strong>${p.name}</strong><p style="font-size:12px;background:#eee;padding:5px">${p.content}</p>
+                    <button class="btn btn-primary" onclick="loadP('${id}')">🔁 Tải vào Create</button>
+                    <button class="btn btn-danger" onclick="deleteObj('prompts', '${id}'); renderStorage();">Xóa</button></div>`;
+            }).join('');
+        };
+        window.loadP = (id) => {
+            const s = localData.prompts[id].state;
+            Object.keys(localData.tags).forEach(tid => {
+                if(localData.tags[tid].isDeleted) return;
+                localData.tags[tid].checked = !!s[tid];
+                localData.tags[tid].weight = s[tid] || 1.0;
+                localData.tags[tid].timestamp = getTs();
+            });
+            saveLocal(); navigate('groups');
+        };
+
+        // --- ĐỒNG BỘ ---
+        window.syncAndPurge = async function() {
+            if(!db) return alert("Chưa cấu hình Firebase!");
+            const btn = document.getElementById('btnSync');
+            btn.disabled = true; btn.innerText = "⏳ Đang đồng bộ...";
+            try {
+                const docRef = db.collection("AppData").doc(DOC_ID);
+                await db.runTransaction(async (t) => {
+                    const snap = await t.get(docRef);
+                    const cloud = snap.exists ? snap.data() : { groups:{}, tags:{}, prompts:{}, groupOrder:[] };
+                    const merged = { groups:{}, tags:{}, prompts:{}, groupOrder: localData.groupOrder };
+                    ['groups','tags','prompts'].forEach(k => {
+                        const allIds = new Set([...Object.keys(localData[k]), ...Object.keys(cloud[k]||{})]);
+                        allIds.forEach(id => {
+                            const l = localData[k][id]; const c = cloud[k][id];
+                            if(!l) merged[k][id] = c; else if(!c) merged[k][id] = l;
+                            else merged[k][id] = l.timestamp > c.timestamp ? l : c;
+                        });
+                        Object.keys(merged[k]).forEach(id => { if(merged[k][id].isDeleted) delete merged[k][id]; });
+                    });
+                    merged.groupOrder = merged.groupOrder.filter(id => merged.groups[id]);
+                    t.set(docRef, merged);
+                    localData = merged;
+                });
+                saveLocal(); renderView('menu'); alert("Xong!");
+            } catch(e) { alert("Lỗi: " + e.message); }
+            finally { btn.disabled = false; btn.innerText = "☁️ Đồng bộ & Tẩy uế (Purge)"; }
+        };
+
+        window.parseBulkText = () => {
+            const lines = document.getElementById('bulkInput').value.split('\n');
+            let gid = null;
+            lines.forEach(l => {
+                l = l.trim(); if(!l) return;
+                if(l.startsWith('#')) { gid = genId(); localData.groups[gid] = { name: l.substring(1).trim(), timestamp: getTs(), isDeleted: false }; localData.groupOrder.push(gid); }
+                else if(gid) localData.tags[genId()] = { groupId: gid, name: l, weight: 1.0, checked: false, timestamp: getTs(), isDeleted: false };
+            });
+            saveLocal(); renderView('menu');
+        };
+
+        window.exportData = (type) => {
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(new Blob([JSON.stringify(localData)], {type: 'application/json'}));
+            a.download = "PromptBackup.json"; a.click();
+        };
+
+        window.importJSON = (e) => {
+            const f = e.target.files[0]; if(!f) return;
+            const r = new FileReader(); r.onload = ev => { localData = JSON.parse(ev.target.result); saveLocal(); renderView('menu'); }; r.readAsText(f);
+        };
+
+        // Khởi động
+        loadLocal();
+        history.replaceState({ view: 'menu' }, "", "#menu");
+    </script>
+</body>
+</html>
