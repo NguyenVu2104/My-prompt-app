@@ -99,11 +99,15 @@
     </div>
 
     <script>
-        const firebaseConfig = { 
-            apiKey: "DÁN_TẠI_ĐÂY", 
-            projectId: "DÁN_TẠI_ĐÂY" 
-        };
-        
+	const firebaseConfig = {
+  	apiKey: "AIzaSyBIgCJ0luQ_-vooCcAB7OCYO-Hzi5I4rY0",
+  	authDomain: "my-prompt-app-ce6b2.firebaseapp.com",
+  	databaseURL: "https://my-prompt-app-ce6b2-default-rtdb.asia-southeast1.firebasedatabase.app",
+  	projectId: "my-prompt-app-ce6b2",
+  	storageBucket: "my-prompt-app-ce6b2.firebasestorage.app",
+  	messagingSenderId: "1057898416087",
+  	appId: "1:1057898416087:web:733504a126c9d46591ad92"
+	};
         let db = null;
         if (firebaseConfig.apiKey !== "DÁN_TẠI_ĐÂY") {
             firebase.initializeApp(firebaseConfig);
