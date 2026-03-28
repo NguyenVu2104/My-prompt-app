@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Prompt Manager</title>
+    <title>Prompt Manager Pro</title>
     <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-firestore-compat.js"></script>
     <style>
@@ -12,9 +12,10 @@
         * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
         .view { display: none; padding: 15px; max-width: 600px; margin: 0 auto; min-height: 100vh; }
         .view.active { display: block; }
-        .card { background: var(--card); border-radius: 8px; padding: 15px; margin-bottom: 15px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+        .card { background: var(--card); border-radius: 8px; padding: 15px; margin-bottom: 15px; box-shadow: 0 1px 3px rgba(0,0,0,0.5); }
         h1, h2 { margin-top: 0; font-size: 20px; border-bottom: 2px solid var(--border); padding-bottom: 10px; margin-bottom: 15px; }
-        input[type="text"], input[type="number"], textarea { width: 100%; padding: 12px; border: 1px solid var(--border); border-radius: 6px; font-size: 16px; margin-bottom: 10px; outline: none; }
+        input[type="text"], input[type="number"], textarea { width: 100%; padding: 12px; border: 1px solid var(--border); border-radius: 6px; font-size: 16px; margin-bottom: 10px; outline: none; background: #2c2c2e; color: #fff; }
+        input::placeholder { color: #8e8e93; }
         button.btn { padding: 12px 15px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 14px; }
         button.btn-primary { background: var(--primary); color: white; }
         button.btn-danger { background: var(--danger); color: white; }
@@ -24,16 +25,18 @@
         .list-item-content { flex-grow: 1; padding: 15px; font-weight: 500; font-size: 16px; }
         .badge { background: var(--primary); color: white; padding: 2px 8px; border-radius: 12px; font-size: 12px; margin-left: 8px; }
         .sort-controls { display: flex; flex-direction: column; border-left: 1px solid var(--border); }
-        .sort-btn { padding: 10px 15px; background: #fdfdfd; border: none; font-size: 14px; cursor: pointer; border-bottom: 1px solid var(--border); }
+        .sort-btn { padding: 10px 15px; background: transparent; color: var(--text); border: none; font-size: 14px; cursor: pointer; border-bottom: 1px solid var(--border); }
         .tag-row { display: flex; align-items: center; padding: 12px; background: var(--card); border-bottom: 1px solid var(--border); }
         .tag-row label { flex-grow: 1; margin-left: 12px; font-size: 16px; }
         .tag-row input[type="number"] { width: 65px; margin-bottom: 0; text-align: center; }
-        .top-bar { display: flex; align-items: center; margin-bottom: 20px; }
+        .top-bar { display: flex; align-items: center; margin-bottom: 15px; }
         .btn-back { background: none; border: none; font-size: 18px; color: var(--primary); font-weight: bold; padding: 10px; cursor: pointer; }
-        #fab-preview { display: none; position: fixed; bottom: 25px; right: 25px; width: 60px; height: 60px; border-radius: 30px; background: var(--primary); color: white; font-size: 26px; border: none; box-shadow: 0 5px 15px rgba(0,0,0,0.3); z-index: 100; align-items: center; justify-content: center; }
-        #modal-overlay { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.7); z-index: 200; align-items: center; justify-content: center; padding: 20px; }
-        .modal-content { background: var(--card); width: 100%; max-width: 450px; padding: 20px; border-radius: 12px; max-height: 90vh; overflow-y: auto; }
+        #fab-preview { display: none; position: fixed; bottom: 25px; right: 25px; width: 60px; height: 60px; border-radius: 30px; background: var(--primary); color: white; font-size: 26px; border: none; box-shadow: 0 5px 15px rgba(0,0,0,0.5); z-index: 100; align-items: center; justify-content: center; }
+        #modal-overlay { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.8); z-index: 200; align-items: center; justify-content: center; padding: 20px; }
+        .modal-content { background: var(--card); width: 100%; max-width: 450px; padding: 20px; border-radius: 12px; max-height: 90vh; overflow-y: auto; border: 1px solid var(--border); }
         .storage-card { border: 1px solid var(--border); border-radius: 8px; padding: 12px; margin-bottom: 15px; }
+        .search-container { margin-bottom: 15px; }
+        .search-input { background: #2c2c2e url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="%238e8e93" viewBox="0 0 16 16"><path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001c.03.04.062.078.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1.007 1.007 0 0 0-.115-.1zM12 6.5a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0z"/></svg>') no-repeat 10px center; padding-left: 35px !important; }
     </style>
 </head>
 <body>
@@ -53,9 +56,12 @@
     </div>
 
     <div id="view-tags" class="view">
-        <div class="top-bar"><button class="btn-back" onclick="goBack()">❮ Quay lại</button><h2 id="current-group-name">Tags</h2></div>
-        <div id="ui-tags"></div>
-        <div class="card" style="display:flex; gap:8px;"><input type="text" id="newTagName" placeholder="Tên tag..."><button class="btn btn-primary" onclick="addTag()">+ Tag</button></div>
+        <div class="top-bar"><button class="btn-back" onclick="goBack()">❮ Quay lại</button><h2 id="current-group-name" style="margin:0; flex-grow:1;">Tags</h2></div>
+        <div class="search-container">
+            <input type="text" id="searchTag" class="search-input" placeholder="Tìm kiếm tag..." onkeyup="filterTags()">
+        </div>
+        <div id="ui-tags" style="border-radius:8px; border:1px solid var(--border); overflow:hidden;"></div>
+        <div class="card" style="margin-top:15px; display:flex; gap:8px;"><input type="text" id="newTagName" placeholder="Tên tag..."><button class="btn btn-primary" onclick="addTag()">+ Tag</button></div>
     </div>
 
     <div id="view-storage" class="view">
@@ -81,7 +87,7 @@
     <div id="modal-overlay">
         <div class="modal-content">
             <h2>Preview & Options</h2>
-            <textarea id="outputResult" rows="5" readonly style="background:#f0f0f0;"></textarea>
+            <textarea id="outputResult" rows="5" readonly style="background:#2c2c2e; border:none;"></textarea>
             <input type="text" id="saveName" placeholder="Đặt tên prompt...">
             <div style="display:flex; gap:8px; margin-bottom:10px;">
                 <button class="btn btn-primary" style="flex:1" onclick="copyResult()">Sao chép</button>
@@ -93,19 +99,11 @@
     </div>
 
     <script>
-        // --- CẤU HÌNH FIREBASE (DÁN CỦA BẠN VÀO ĐÂY) ---
-	const firebaseConfig = {
-  	apiKey: "AIzaSyBIgCJ0luQ_-vooCcAB7OCYO-Hzi5I4rY0",
-  	authDomain: "my-prompt-app-ce6b2.firebaseapp.com",
-  	databaseURL: "https://my-prompt-app-ce6b2-default-rtdb.asia-southeast1.firebasedatabase.app",
-  	projectId: "my-prompt-app-ce6b2",
-  	storageBucket: "my-prompt-app-ce6b2.firebasestorage.app",
-  	messagingSenderId: "1057898416087",
-  	appId: "1:1057898416087:web:733504a126c9d46591ad92"
-	};
-
+        const firebaseConfig = { 
+            apiKey: "DÁN_TẠI_ĐÂY", 
+            projectId: "DÁN_TẠI_ĐÂY" 
+        };
         
-        // Khởi tạo Firebase phiên bản cũ (Compat) để chạy được trên file cục bộ
         let db = null;
         if (firebaseConfig.apiKey !== "DÁN_TẠI_ĐÂY") {
             firebase.initializeApp(firebaseConfig);
@@ -113,7 +111,6 @@
         }
         const DOC_ID = "my_secret_doc_id_9999";
 
-        // --- DỮ LIỆU ---
         let localData = { groups: {}, tags: {}, prompts: {}, groupOrder: [] };
         
         function loadLocal() {
@@ -130,7 +127,6 @@
         const genId = () => Date.now().toString(36) + Math.random().toString(36).substring(2);
         const getTs = () => Date.now();
 
-        // --- ĐIỀU HƯỚNG (ĐÃ SỬA LỖI) ---
         let activeGroupId = null;
         window.navigate = function(view, param = null) {
             activeGroupId = param;
@@ -157,11 +153,13 @@
             
             document.getElementById('fab-preview').style.display = (name === 'groups' || name === 'tags') ? 'flex' : 'none';
             if(name === 'groups') renderGroups();
-            if(name === 'tags') renderTags();
+            if(name === 'tags') {
+                document.getElementById('searchTag').value = "";
+                renderTags();
+            }
             if(name === 'storage') renderStorage();
         }
 
-        // --- LOGIC HIỂN THỊ ---
         window.renderGroups = () => {
             const container = document.getElementById('ui-groups');
             localData.groupOrder = localData.groupOrder.filter(id => localData.groups[id] && !localData.groups[id].isDeleted);
@@ -195,7 +193,15 @@
             }).join('');
         };
 
-        // --- THAO TÁC (RESET, DELETE, ADD...) ---
+        window.filterTags = () => {
+            const query = document.getElementById('searchTag').value.toLowerCase().trim();
+            const rows = document.querySelectorAll('.tag-row');
+            rows.forEach(row => {
+                const label = row.querySelector('label').innerText.toLowerCase();
+                row.style.display = label.includes(query) ? 'flex' : 'none';
+            });
+        };
+
         window.updTag = (id) => {
             localData.tags[id].checked = document.getElementById('chk_'+id).checked;
             localData.tags[id].weight = parseFloat(document.getElementById('w_'+id).value) || 1.0;
@@ -212,26 +218,33 @@
             if(!confirm("Xóa?")) return;
             localData[type][id].isDeleted = true;
             localData[type][id].timestamp = getTs();
-            saveLocal(); renderGroups(); renderTags();
+            saveLocal(); renderGroups(); if(type === 'tags') renderTags();
         };
+        
         window.addGroup = () => {
             const name = document.getElementById('newGroupName').value.trim();
             if(!name) return;
+            const nameLower = name.toLowerCase();
+            const isDuplicate = Object.values(localData.groups).some(g => !g.isDeleted && g.name.toLowerCase() === nameLower);
+            if (isDuplicate) return alert("Tên nhóm này đã tồn tại!");
             const id = genId();
             localData.groups[id] = { name, timestamp: getTs(), isDeleted: false };
             localData.groupOrder.push(id);
             saveLocal(); renderGroups();
             document.getElementById('newGroupName').value = "";
         };
+
         window.addTag = () => {
             const name = document.getElementById('newTagName').value.trim();
             if(!name) return;
+            const nameLower = name.toLowerCase();
+            const isDuplicate = Object.values(localData.tags).some(t => !t.isDeleted && t.groupId === activeGroupId && t.name.toLowerCase() === nameLower);
+            if (isDuplicate) return alert("Tag này đã tồn tại trong nhóm!");
             localData.tags[genId()] = { groupId: activeGroupId, name, weight: 1.0, checked: false, timestamp: getTs(), isDeleted: false };
             saveLocal(); renderTags();
             document.getElementById('newTagName').value = "";
         };
 
-        // --- PROMPT MODAL ---
         window.openModal = () => {
             const res = Object.values(localData.tags).filter(t => !t.isDeleted && t.checked).map(t => t.weight === 1.0 ? t.name : `(${t.name}:${t.weight})`);
             document.getElementById('outputResult').value = res.join(", ");
@@ -257,7 +270,7 @@
         window.renderStorage = () => {
             document.getElementById('ui-storage').innerHTML = Object.keys(localData.prompts).filter(id => !localData.prompts[id].isDeleted).map(id => {
                 const p = localData.prompts[id];
-                return `<div class="storage-card"><strong>${p.name}</strong><p style="font-size:12px;background:#eee;padding:5px">${p.content}</p>
+                return `<div class="storage-card"><strong>${p.name}</strong><p style="font-size:12px;background:#2c2c2e;padding:5px;border-radius:4px;">${p.content}</p>
                     <button class="btn btn-primary" onclick="loadP('${id}')">🔁 Tải vào Create</button>
                     <button class="btn btn-danger" onclick="deleteObj('prompts', '${id}'); renderStorage();">Xóa</button></div>`;
             }).join('');
@@ -273,7 +286,6 @@
             saveLocal(); navigate('groups');
         };
 
-        // --- ĐỒNG BỘ ---
         window.syncAndPurge = async function() {
             if(!db) return alert("Chưa cấu hình Firebase!");
             const btn = document.getElementById('btnSync');
@@ -307,10 +319,20 @@
             let gid = null;
             lines.forEach(l => {
                 l = l.trim(); if(!l) return;
-                if(l.startsWith('#')) { gid = genId(); localData.groups[gid] = { name: l.substring(1).trim(), timestamp: getTs(), isDeleted: false }; localData.groupOrder.push(gid); }
-                else if(gid) localData.tags[genId()] = { groupId: gid, name: l, weight: 1.0, checked: false, timestamp: getTs(), isDeleted: false };
+                if(l.startsWith('#')) { 
+                    const name = l.substring(1).trim();
+                    const nameLower = name.toLowerCase();
+                    const existingGroup = Object.entries(localData.groups).find(([id, g]) => !g.isDeleted && g.name.toLowerCase() === nameLower);
+                    if (existingGroup) { gid = existingGroup[0]; } 
+                    else { gid = genId(); localData.groups[gid] = { name, timestamp: getTs(), isDeleted: false }; localData.groupOrder.push(gid); }
+                }
+                else if(gid) {
+                    const nameLower = l.toLowerCase();
+                    const isDuplicateTag = Object.values(localData.tags).some(t => !t.isDeleted && t.groupId === gid && t.name.toLowerCase() === nameLower);
+                    if (!isDuplicateTag) { localData.tags[genId()] = { groupId: gid, name: l, weight: 1.0, checked: false, timestamp: getTs(), isDeleted: false }; }
+                }
             });
-            saveLocal(); renderView('menu');
+            saveLocal(); renderView('menu'); alert("Nhập hoàn tất!");
         };
 
         window.exportData = (type) => {
@@ -321,10 +343,9 @@
 
         window.importJSON = (e) => {
             const f = e.target.files[0]; if(!f) return;
-            const r = new FileReader(); r.onload = ev => { localData = JSON.parse(ev.target.result); saveLocal(); renderView('menu'); }; r.readAsText(f);
+            const r = new FileReader(); r.onload = ev => { localData = JSON.parse(ev.target.result); saveLocal(); renderView('menu'); alert("Khôi phục thành công!"); }; r.readAsText(f);
         };
 
-        // Khởi động
         loadLocal();
         history.replaceState({ view: 'menu' }, "", "#menu");
     </script>
