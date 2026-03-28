@@ -3,11 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Prompt Manager Pro</title>
+    <title>Prompt Manager</title>
     <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-firestore-compat.js"></script>
     <style>
-        :root { --bg: #f4f5f7; --card: #ffffff; --text: #172b4d; --border: #dfe1e6; --primary: #0052cc; --danger: #de350b; --success: #00875a; }
+        :root { --bg: #000000; --card: #1c1c1e; --text: #ffffff; --border: #38383a; --primary: #0a84ff; --danger: #ff453a; --success: #32d74b; }
         body { font-family: -apple-system, system-ui, sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 0; padding-bottom: 90px; }
         * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
         .view { display: none; padding: 15px; max-width: 600px; margin: 0 auto; min-height: 100vh; }
@@ -42,7 +42,7 @@
         <h1>Prompt Manager</h1>
         <button class="btn btn-primary btn-block" onclick="navigate('groups')">✏️ Create New Prompt</button>
         <button class="btn btn-block" onclick="navigate('storage')">💾 Saved Storage</button>
-        <button id="btnSync" class="btn btn-success btn-block" onclick="syncAndPurge()">☁️ Đồng bộ & Tẩy uế (Purge)</button>
+        <button id="btnSync" class="btn btn-success btn-block" onclick="syncAndPurge()">☁️ Đồng bộ</button>
         <button class="btn btn-block" onclick="navigate('data')">⚙️ Settings & Tools</button>
     </div>
 
@@ -299,7 +299,7 @@
                 });
                 saveLocal(); renderView('menu'); alert("Xong!");
             } catch(e) { alert("Lỗi: " + e.message); }
-            finally { btn.disabled = false; btn.innerText = "☁️ Đồng bộ & Tẩy uế (Purge)"; }
+            finally { btn.disabled = false; btn.innerText = "☁️ Đồng bộ"; }
         };
 
         window.parseBulkText = () => {
