@@ -22,13 +22,15 @@
         button.btn-success { background: var(--success); color: white; }
         button.btn-block { width: 100%; display: block; margin-bottom: 10px; font-size: 16px; height: 50px; }
         
+        /* List UI */
         .list-item { display: flex; align-items: center; background: var(--card); border: 1px solid var(--border); border-radius: 8px; margin-bottom: 8px; padding: 12px; cursor: pointer; }
         .list-item-content { flex-grow: 1; font-weight: 500; font-size: 16px; display: flex; align-items: center; gap: 8px; }
-        .action-btns { display: flex; gap: 10px; margin-left: 10px; }
+        .action-btns { display: flex; gap: 8px; margin-left: 10px; align-items: center; }
         .icon-btn { background: none; border: none; color: #8e8e93; font-size: 16px; cursor: pointer; padding: 5px; }
         .lora-badge { background: var(--lora); color: white; font-size: 10px; padding: 2px 6px; border-radius: 4px; font-weight: bold; }
         .rating-input { width: 50px !important; padding: 4px !important; margin: 0 !important; text-align: center; font-size: 12px !important; border-radius: 4px !important; }
         
+        /* Tag UI */
         .tag-row { display: flex; align-items: center; padding: 10px 12px; background: var(--card); border: 1px solid var(--border); border-radius: 8px; margin-bottom: 8px; }
         .tag-row label { flex-grow: 1; margin-left: 10px; font-size: 16px; word-break: break-word; }
         .tag-row input[type="number"] { width: 60px; margin-bottom: 0; text-align: center; padding: 8px; }
@@ -142,7 +144,7 @@
         let activeGroupId = null; 
         let editingDescId = null; 
 
-        // --- DATA MIGRATION ENGINE (Khắc phục lỗi Tàng hình) ---
+        // --- DATA MIGRATION ENGINE (Khắc phục lỗi tàng hình & Cấp sortIndex) ---
         function migrateData(data) {
             if(!data) data = { groups: {}, tags: {}, prompts: {} };
             if(!data.groups) data.groups = {};
@@ -152,6 +154,7 @@
             Object.values(data.groups).forEach(g => {
                 if(g.parentId === undefined) g.parentId = null;
                 if(!g.type) g.type = 'group';
+                if(g.sortIndex === undefined) g.sortIndex = g.timestamp || Date.now(); // Cấp sortIndex tự động cho dữ liệu cũ
             });
             Object.values(data.tags).forEach(t => {
                 if(t.groupId !== undefined) { t.parentId = t.groupId; delete t.groupId; }
@@ -222,12 +225,17 @@
             document.getElementById('btn-add-lora').style.display = depth < 3 ? 'block' : 'none';
             document.getElementById('btn-add-trigger').style.display = isInsideLora ? 'block' : 'none';
 
-            let groups = Object.entries(localData.groups).filter(([id, g]) => g.parentId === activeGroupId && !g.isDeleted).sort((a,b) => a[1].name.localeCompare(b[1].name));
-            let tags = Object.entries(localData.tags).filter(([id, t]) => t.parentId === activeGroupId && !t.isDeleted).sort((a,b) => {
-                if(a[1].type === 'trigger' && b[1].type !== 'trigger') return -1;
-                if(b[1].type === 'trigger' && a[1].type !== 'trigger') return 1;
-                return a[1].name.localeCompare(b[1].name);
-            });
+            // GROUPS: Xếp bằng tay qua sortIndex
+            let groups = Object.entries(localData.groups).filter(([id, g]) => g.parentId === activeGroupId && !g.isDeleted)
+                .sort((a,b) => (a[1].sortIndex || 0) - (b[1].sortIndex || 0));
+            
+            // TAGS: Tự động xếp A-Z (Trigger lên đầu)
+            let tags = Object.entries(localData.tags).filter(([id, t]) => t.parentId === activeGroupId && !t.isDeleted)
+                .sort((a,b) => {
+                    if(a[1].type === 'trigger' && b[1].type !== 'trigger') return -1;
+                    if(b[1].type === 'trigger' && a[1].type !== 'trigger') return 1;
+                    return a[1].name.localeCompare(b[1].name);
+                });
 
             let html = "";
             groups.forEach(([id, g]) => {
@@ -241,6 +249,8 @@
                     ${isLora ? `<input type="text" class="rating-input" value="${g.rating || ''}" placeholder="Rate" onclick="event.stopPropagation()" onchange="updGroup('${id}', 'rating', this.value)">` : ''}
                     <div class="action-btns" onclick="event.stopPropagation()">
                         ${isLora ? `<button class="icon-btn" onclick="openDesc('${id}')">ℹ️</button>` : ''}
+                        <button class="icon-btn" onclick="moveGrp('${id}', -1)">▲</button>
+                        <button class="icon-btn" onclick="moveGrp('${id}', 1)">▼</button>
                         <button class="icon-btn" onclick="renameItem('groups', '${id}')">✏️</button>
                         <button class="icon-btn" style="color:var(--danger);" onclick="deleteItem('groups', '${id}')">✕</button>
                     </div>
@@ -269,7 +279,7 @@
             if(!name) return alert("Please enter a name");
             const ts = getTs();
             if(type === 'group' || type === 'lora') {
-                localData.groups[genId()] = { name, type, parentId: activeGroupId, description: "", rating: "", timestamp: ts, isDeleted: false };
+                localData.groups[genId()] = { name, type, parentId: activeGroupId, sortIndex: ts, description: "", rating: "", timestamp: ts, isDeleted: false };
             } else {
                 localData.tags[genId()] = { name, type, parentId: activeGroupId, weight: 1.0, checked: false, timestamp: ts, isDeleted: false };
             }
@@ -279,6 +289,7 @@
         window.updGroup = (id, key, val) => { localData.groups[id][key] = val; localData.groups[id].timestamp = getTs(); saveLocal(); };
         window.updTag = (id) => { localData.tags[id].checked = document.getElementById('chk_'+id).checked; localData.tags[id].weight = parseFloat(document.getElementById('w_'+id).value) || 1.0; localData.tags[id].timestamp = getTs(); saveLocal(); };
         window.renameItem = (collection, id) => { const newName = prompt("Rename:", localData[collection][id].name); if(newName && newName.trim()) { localData[collection][id].name = newName.trim(); localData[collection][id].timestamp = getTs(); saveLocal(); renderWorkspace(); } };
+        
         window.deleteItem = (collection, id) => {
             if(collection === 'groups') {
                 const hasChildG = Object.values(localData.groups).some(g => g.parentId === id && !g.isDeleted);
@@ -287,6 +298,31 @@
             }
             if(!confirm("Confirm delete?")) return;
             localData[collection][id].isDeleted = true; localData[collection][id].timestamp = getTs();
+            saveLocal(); renderWorkspace();
+        };
+
+        // MOVE GROUP/LORA (Thuật toán Re-indexing)
+        window.moveGrp = (id, dir) => {
+            const g = localData.groups[id];
+            if(!g) return;
+            
+            // Lấy tất cả anh em cùng nhà và xếp theo sortIndex hiện tại
+            let siblings = Object.keys(localData.groups)
+                .filter(k => localData.groups[k].parentId === g.parentId && !localData.groups[k].isDeleted)
+                .sort((a,b) => (localData.groups[a].sortIndex || 0) - (localData.groups[b].sortIndex || 0));
+            
+            let idx = siblings.indexOf(id);
+            if(idx + dir < 0 || idx + dir >= siblings.length) return; // Kịch kim
+            
+            // Hoán vị trong mảng
+            [siblings[idx], siblings[idx+dir]] = [siblings[idx+dir], siblings[idx]];
+            
+            // Re-index (Đánh lại số từ 0, 1, 2...) để triệt tiêu lỗi trùng sortIndex
+            const ts = getTs();
+            siblings.forEach((k, i) => {
+                localData.groups[k].sortIndex = i;
+                localData.groups[k].timestamp = ts;
+            });
             saveLocal(); renderWorkspace();
         };
 
@@ -346,7 +382,8 @@
         window.parseBulkText = () => {
             const lines = document.getElementById('bulkInput').value.split('\n');
             let stack = []; 
-            const ts = getTs();
+            let importSortCounter = getTs(); // Tự động cấp sortIndex cho dữ liệu import
+
             lines.forEach(l => {
                 l = l.trim(); if(!l) return;
                 const hashMatch = l.match(/^(#+)\s+(.*)/);
@@ -358,13 +395,13 @@
                     let name = isLora ? rawName.substring(6).trim() : rawName;
                     let pId = level === 1 ? null : stack[level - 1];
                     let gid = genId();
-                    localData.groups[gid] = { name, type: isLora ? 'lora' : 'group', parentId: pId, description: "", rating: "", timestamp: ts, isDeleted: false };
+                    localData.groups[gid] = { name, type: isLora ? 'lora' : 'group', parentId: pId, sortIndex: importSortCounter++, description: "", rating: "", timestamp: importSortCounter, isDeleted: false };
                     stack[level] = gid; stack.length = level + 1; 
                 } else {
                     let pId = stack.length > 0 ? stack[stack.length - 1] : null;
                     let isTrigger = l.startsWith('!');
                     let name = isTrigger ? l.substring(1).trim() : l;
-                    localData.tags[genId()] = { name, type: isTrigger ? 'trigger' : 'tag', parentId: pId, weight: 1.0, checked: false, timestamp: ts, isDeleted: false };
+                    localData.tags[genId()] = { name, type: isTrigger ? 'trigger' : 'tag', parentId: pId, weight: 1.0, checked: false, timestamp: importSortCounter++, isDeleted: false };
                 }
             });
             saveLocal(); document.getElementById('bulkInput').value = ""; alert("Import Successful!");
