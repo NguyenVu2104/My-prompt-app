@@ -22,7 +22,6 @@
         button.btn-success { background: var(--success); color: white; }
         button.btn-block { width: 100%; display: block; margin-bottom: 10px; font-size: 16px; height: 50px; }
         
-        /* List UI */
         .list-item { display: flex; align-items: center; background: var(--card); border: 1px solid var(--border); border-radius: 8px; margin-bottom: 8px; padding: 12px; cursor: pointer; }
         .list-item-content { flex-grow: 1; font-weight: 500; font-size: 16px; display: flex; align-items: center; gap: 8px; }
         .action-btns { display: flex; gap: 10px; margin-left: 10px; }
@@ -30,18 +29,15 @@
         .lora-badge { background: var(--lora); color: white; font-size: 10px; padding: 2px 6px; border-radius: 4px; font-weight: bold; }
         .rating-input { width: 50px !important; padding: 4px !important; margin: 0 !important; text-align: center; font-size: 12px !important; border-radius: 4px !important; }
         
-        /* Tag UI */
         .tag-row { display: flex; align-items: center; padding: 10px 12px; background: var(--card); border: 1px solid var(--border); border-radius: 8px; margin-bottom: 8px; }
         .tag-row label { flex-grow: 1; margin-left: 10px; font-size: 16px; word-break: break-word; }
         .tag-row input[type="number"] { width: 60px; margin-bottom: 0; text-align: center; padding: 8px; }
         .trigger-icon { color: var(--trigger); font-size: 14px; margin-right: 5px; }
 
-        /* Navigation */
         .breadcrumbs { display: flex; flex-wrap: wrap; gap: 5px; align-items: center; font-size: 14px; color: var(--primary); font-weight: bold; margin-bottom: 15px; padding: 10px; background: var(--card); border-radius: 6px; border: 1px solid var(--border); }
         .bc-item { cursor: pointer; }
         .bc-sep { color: #8e8e93; }
 
-        /* Floating Button & Modal */
         #fab-preview { display: none; position: fixed; bottom: 25px; right: 25px; width: 60px; height: 60px; border-radius: 30px; background: var(--primary); color: white; font-size: 26px; border: none; box-shadow: 0 5px 15px rgba(0,0,0,0.5); z-index: 100; align-items: center; justify-content: center; cursor: pointer;}
         #modal-overlay, #desc-modal { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.8); z-index: 200; align-items: center; justify-content: center; padding: 20px; }
         .modal-content { background: var(--card); width: 100%; max-width: 450px; padding: 20px; border-radius: 12px; border: 1px solid var(--border); }
@@ -128,7 +124,6 @@
     </div>
 
     <script>
-        // --- FIREBASE CONFIGURATION ---
         const firebaseConfig = {
             apiKey: "AIzaSyBIgCJ0luQ_-vooCcAB7OCYO-Hzi5I4rY0",
             authDomain: "my-prompt-app-ce6b2.firebaseapp.com",
@@ -141,16 +136,36 @@
         
         firebase.initializeApp(firebaseConfig);
         const db = firebase.firestore();
-        const DOC_ID = "main_prompt_database"; // Secure hardcoded document ID
+        const DOC_ID = "main_prompt_database";
 
-        // --- CORE DATA ---
         let localData = { groups: {}, tags: {}, prompts: {} };
-        let activeGroupId = null; // null = Root level
-        let editingDescId = null; // Tracks which LoRA is being edited
+        let activeGroupId = null; 
+        let editingDescId = null; 
+
+        // --- DATA MIGRATION ENGINE (Khắc phục lỗi Tàng hình) ---
+        function migrateData(data) {
+            if(!data) data = { groups: {}, tags: {}, prompts: {} };
+            if(!data.groups) data.groups = {};
+            if(!data.tags) data.tags = {};
+            if(!data.prompts) data.prompts = {};
+
+            Object.values(data.groups).forEach(g => {
+                if(g.parentId === undefined) g.parentId = null;
+                if(!g.type) g.type = 'group';
+            });
+            Object.values(data.tags).forEach(t => {
+                if(t.groupId !== undefined) { t.parentId = t.groupId; delete t.groupId; }
+                if(t.parentId === undefined) t.parentId = null;
+                if(!t.type) t.type = 'tag';
+            });
+            return data;
+        }
 
         function loadLocal() {
-            try { const raw = localStorage.getItem('promptAppPro'); if(raw) localData = JSON.parse(raw); } 
-            catch(e) { console.error("Load failed"); }
+            try { 
+                const raw = localStorage.getItem('promptAppPro'); 
+                if(raw) localData = migrateData(JSON.parse(raw)); 
+            } catch(e) { console.error("Load failed"); }
         }
         function saveLocal() {
             localStorage.setItem('promptAppPro_backup', localStorage.getItem('promptAppPro'));
@@ -160,7 +175,7 @@
         const genId = () => Date.now().toString(36) + Math.random().toString(36).substring(2);
         const getTs = () => Date.now();
 
-        // --- NAVIGATION & BREADCRUMBS ---
+        // --- NAVIGATION ---
         window.navigate = function(view, param = null) {
             if(view === 'workspace') activeGroupId = param;
             history.pushState({ view, param }, "", "#" + view);
@@ -172,7 +187,7 @@
             if(document.getElementById('modal-overlay').style.display === 'flex') { closeModal('modal-overlay'); return; }
             if(document.getElementById('desc-modal').style.display === 'flex') { closeModal('desc-modal'); return; }
             const state = e.state || { view: 'menu' };
-            if(state.view === 'workspace') activeGroupId = state.param;
+            if(state.view === 'workspace') activeGroupId = state.param || null;
             renderView(state.view);
         };
 
@@ -184,16 +199,14 @@
             if(name === 'storage') renderStorage();
         }
 
-        // Calculate Depth (Max 4)
         function getDepth(id) {
             let depth = 0; let curr = id;
             while(curr && localData.groups[curr]) { depth++; curr = localData.groups[curr].parentId; }
             return depth;
         }
 
-        // --- RENDER WORKSPACE ---
+        // --- WORKSPACE RENDERING ---
         window.renderWorkspace = () => {
-            // Render Breadcrumbs
             let bcHtml = `<span class="bc-item" onclick="navigate('menu')">Home</span>`;
             if (activeGroupId) {
                 let path = []; let curr = activeGroupId;
@@ -202,29 +215,21 @@
             }
             document.getElementById('ui-breadcrumbs').innerHTML = bcHtml;
 
-            // Determine UI context
             const depth = getDepth(activeGroupId);
-            const isInsideLora = activeGroupId && localData.groups[activeGroupId].type === 'lora';
+            const isInsideLora = activeGroupId && localData.groups[activeGroupId] && localData.groups[activeGroupId].type === 'lora';
 
-            // Configure Add Buttons visibility
             document.getElementById('btn-add-group').style.display = depth < 3 ? 'block' : 'none';
             document.getElementById('btn-add-lora').style.display = depth < 3 ? 'block' : 'none';
             document.getElementById('btn-add-trigger').style.display = isInsideLora ? 'block' : 'none';
 
-            // Auto-Sort Groups (A-Z)
-            let groups = Object.entries(localData.groups).filter(([id, g]) => g.parentId === activeGroupId && !g.isDeleted)
-                .sort((a,b) => a[1].name.localeCompare(b[1].name));
-            
-            // Auto-Sort Tags (Triggers first, then A-Z)
-            let tags = Object.entries(localData.tags).filter(([id, t]) => t.parentId === activeGroupId && !t.isDeleted)
-                .sort((a,b) => {
-                    if(a[1].type === 'trigger' && b[1].type !== 'trigger') return -1;
-                    if(b[1].type === 'trigger' && a[1].type !== 'trigger') return 1;
-                    return a[1].name.localeCompare(b[1].name);
-                });
+            let groups = Object.entries(localData.groups).filter(([id, g]) => g.parentId === activeGroupId && !g.isDeleted).sort((a,b) => a[1].name.localeCompare(b[1].name));
+            let tags = Object.entries(localData.tags).filter(([id, t]) => t.parentId === activeGroupId && !t.isDeleted).sort((a,b) => {
+                if(a[1].type === 'trigger' && b[1].type !== 'trigger') return -1;
+                if(b[1].type === 'trigger' && a[1].type !== 'trigger') return 1;
+                return a[1].name.localeCompare(b[1].name);
+            });
 
             let html = "";
-            // Draw Groups
             groups.forEach(([id, g]) => {
                 const isLora = g.type === 'lora';
                 html += `
@@ -233,7 +238,7 @@
                         ${isLora ? `<span class="lora-badge">LORA</span>` : `📁`} 
                         ${g.name}
                     </div>
-                    ${isLora ? `<input type="text" class="rating-input" value="${g.rating}" placeholder="Rate" onclick="event.stopPropagation()" onchange="updGroup('${id}', 'rating', this.value)">` : ''}
+                    ${isLora ? `<input type="text" class="rating-input" value="${g.rating || ''}" placeholder="Rate" onclick="event.stopPropagation()" onchange="updGroup('${id}', 'rating', this.value)">` : ''}
                     <div class="action-btns" onclick="event.stopPropagation()">
                         ${isLora ? `<button class="icon-btn" onclick="openDesc('${id}')">ℹ️</button>` : ''}
                         <button class="icon-btn" onclick="renameItem('groups', '${id}')">✏️</button>
@@ -242,7 +247,6 @@
                 </div>`;
             });
 
-            // Draw Tags
             tags.forEach(([id, t]) => {
                 const isTrig = t.type === 'trigger';
                 html += `
@@ -259,7 +263,7 @@
             document.getElementById('ui-items').innerHTML = html;
         };
 
-        // --- CRUD OPERATIONS ---
+        // --- CRUD ---
         window.addItem = (type) => {
             const name = document.getElementById('newItemName').value.trim();
             if(!name) return alert("Please enter a name");
@@ -269,45 +273,27 @@
             } else {
                 localData.tags[genId()] = { name, type, parentId: activeGroupId, weight: 1.0, checked: false, timestamp: ts, isDeleted: false };
             }
-            saveLocal(); renderWorkspace();
-            document.getElementById('newItemName').value = "";
+            saveLocal(); renderWorkspace(); document.getElementById('newItemName').value = "";
         };
 
         window.updGroup = (id, key, val) => { localData.groups[id][key] = val; localData.groups[id].timestamp = getTs(); saveLocal(); };
-        window.updTag = (id) => { 
-            localData.tags[id].checked = document.getElementById('chk_'+id).checked; 
-            localData.tags[id].weight = parseFloat(document.getElementById('w_'+id).value) || 1.0; 
-            localData.tags[id].timestamp = getTs(); saveLocal(); 
-        };
-
-        window.renameItem = (collection, id) => {
-            const newName = prompt("Rename:", localData[collection][id].name);
-            if(newName && newName.trim()) { localData[collection][id].name = newName.trim(); localData[collection][id].timestamp = getTs(); saveLocal(); renderWorkspace(); }
-        };
-
+        window.updTag = (id) => { localData.tags[id].checked = document.getElementById('chk_'+id).checked; localData.tags[id].weight = parseFloat(document.getElementById('w_'+id).value) || 1.0; localData.tags[id].timestamp = getTs(); saveLocal(); };
+        window.renameItem = (collection, id) => { const newName = prompt("Rename:", localData[collection][id].name); if(newName && newName.trim()) { localData[collection][id].name = newName.trim(); localData[collection][id].timestamp = getTs(); saveLocal(); renderWorkspace(); } };
         window.deleteItem = (collection, id) => {
             if(collection === 'groups') {
                 const hasChildG = Object.values(localData.groups).some(g => g.parentId === id && !g.isDeleted);
                 const hasChildT = Object.values(localData.tags).some(t => t.parentId === id && !t.isDeleted);
-                if(hasChildG || hasChildT) return alert("Restrict Delete: Cannot delete. Group is not empty.");
+                if(hasChildG || hasChildT) return alert("Restrict Delete: Cannot delete. Sub-groups or tags exist inside.");
             }
             if(!confirm("Confirm delete?")) return;
             localData[collection][id].isDeleted = true; localData[collection][id].timestamp = getTs();
             saveLocal(); renderWorkspace();
         };
 
-        // --- LORA DESCRIPTION MODAL ---
-        window.openDesc = (id) => {
-            editingDescId = id;
-            document.getElementById('loraDescInput').value = localData.groups[id].description || "";
-            document.getElementById('desc-modal').style.display = 'flex';
-        };
-        window.saveLoraDesc = () => {
-            if(editingDescId) { localData.groups[editingDescId].description = document.getElementById('loraDescInput').value; localData.groups[editingDescId].timestamp = getTs(); saveLocal(); }
-            closeModal('desc-modal');
-        };
+        window.openDesc = (id) => { editingDescId = id; document.getElementById('loraDescInput').value = localData.groups[id].description || ""; document.getElementById('desc-modal').style.display = 'flex'; };
+        window.saveLoraDesc = () => { if(editingDescId) { localData.groups[editingDescId].description = document.getElementById('loraDescInput').value; localData.groups[editingDescId].timestamp = getTs(); saveLocal(); } closeModal('desc-modal'); };
 
-        // --- MULTILINE OUTPUT GENERATION ---
+        // --- OUTPUT ---
         function getRootGroup(id) {
             let curr = id;
             while(curr && localData.groups[curr] && localData.groups[curr].parentId !== null) { curr = localData.groups[curr].parentId; }
@@ -315,8 +301,7 @@
         }
 
         window.openModal = () => {
-            let outputLines = {}; // Map: RootID -> Array of formatted tags
-            
+            let outputLines = {}; 
             Object.values(localData.tags).forEach(t => {
                 if(!t.isDeleted && t.checked) {
                     const str = t.weight === 1.0 ? t.name : `(${t.name}:${t.weight})`;
@@ -325,22 +310,17 @@
                     outputLines[rId].push(str);
                 }
             });
-
-            // Join tags within the same root group with commas, and append a comma at the end of the line
-            let finalOutput = Object.values(outputLines).map(tagsArr => tagsArr.join(", ") + ",").join("\n");
-            
-            document.getElementById('outputResult').value = finalOutput;
+            document.getElementById('outputResult').value = Object.values(outputLines).map(arr => arr.join(", ") + ",").join("\n");
             document.getElementById('modal-overlay').style.display = 'flex';
         };
 
         window.closeModal = (id) => { document.getElementById(id).style.display = 'none'; };
         window.copyResult = () => { navigator.clipboard.writeText(document.getElementById('outputResult').value); alert("Copied!"); };
-        window.resetAllTags = () => { if(confirm("Clear all tags?")){ Object.values(localData.tags).forEach(t => { t.checked = false; t.weight = 1.0; t.timestamp = getTs(); }); saveLocal(); closeModal('modal-overlay'); renderWorkspace(); } };
+        window.resetAllTags = () => { if(confirm("Clear all?")){ Object.values(localData.tags).forEach(t => { t.checked = false; t.weight = 1.0; t.timestamp = getTs(); }); saveLocal(); closeModal('modal-overlay'); renderWorkspace(); } };
 
-        // --- STORAGE ---
         window.savePromptState = () => {
             const name = document.getElementById('saveName').value.trim();
-            if(!name) return alert("Enter prompt name!");
+            if(!name) return alert("Enter name!");
             const state = {}; Object.keys(localData.tags).forEach(id => { if(localData.tags[id].checked) state[id] = localData.tags[id].weight; });
             localData.prompts[genId()] = { name, content: document.getElementById('outputResult').value, state, timestamp: getTs(), isDeleted: false };
             saveLocal(); closeModal('modal-overlay'); alert("Saved!");
@@ -362,26 +342,24 @@
             saveLocal(); navigate('workspace');
         };
 
-        // --- BULK IMPORT (Hierarchical) ---
+        // --- BULK IMPORT ---
         window.parseBulkText = () => {
             const lines = document.getElementById('bulkInput').value.split('\n');
-            let stack = []; // stack[level] = parentId
+            let stack = []; 
             const ts = getTs();
-
             lines.forEach(l => {
                 l = l.trim(); if(!l) return;
                 const hashMatch = l.match(/^(#+)\s+(.*)/);
                 if (hashMatch) {
                     const level = hashMatch[1].length; 
-                    if(level > 4) return; // Prevent abyss
+                    if(level > 4) return; 
                     let rawName = hashMatch[2].trim();
                     let isLora = rawName.toUpperCase().startsWith('[LORA]');
                     let name = isLora ? rawName.substring(6).trim() : rawName;
                     let pId = level === 1 ? null : stack[level - 1];
                     let gid = genId();
                     localData.groups[gid] = { name, type: isLora ? 'lora' : 'group', parentId: pId, description: "", rating: "", timestamp: ts, isDeleted: false };
-                    stack[level] = gid;
-                    stack.length = level + 1; // Drop deeper levels
+                    stack[level] = gid; stack.length = level + 1; 
                 } else {
                     let pId = stack.length > 0 ? stack[stack.length - 1] : null;
                     let isTrigger = l.startsWith('!');
@@ -392,7 +370,7 @@
             saveLocal(); document.getElementById('bulkInput').value = ""; alert("Import Successful!");
         };
 
-        // --- FIREBASE SYNC (Hidden Purge) ---
+        // --- FIREBASE SYNC ---
         window.syncApp = async function() {
             const btn = document.getElementById('btnSync');
             btn.disabled = true; btn.innerText = "⏳ Syncing...";
@@ -400,17 +378,16 @@
                 const docRef = db.collection("AppData").doc(DOC_ID);
                 await db.runTransaction(async (t) => {
                     const snap = await t.get(docRef);
-                    const cloud = snap.exists ? snap.data() : { groups:{}, tags:{}, prompts:{} };
+                    const cloud = snap.exists ? migrateData(snap.data()) : { groups:{}, tags:{}, prompts:{} };
                     const merged = { groups:{}, tags:{}, prompts:{} };
                     
                     ['groups','tags','prompts'].forEach(k => {
-                        const allIds = new Set([...Object.keys(localData[k]), ...Object.keys(cloud[k]||{})]);
+                        const allIds = new Set([...Object.keys(localData[k] || {}), ...Object.keys(cloud[k] || {})]);
                         allIds.forEach(id => {
                             const l = localData[k][id]; const c = cloud[k][id];
                             if(!l) merged[k][id] = c; else if(!c) merged[k][id] = l;
                             else merged[k][id] = l.timestamp > c.timestamp ? l : c;
                         });
-                        // Purge (Hard Delete)
                         Object.keys(merged[k]).forEach(id => { if(merged[k][id].isDeleted) delete merged[k][id]; });
                     });
                     t.set(docRef, merged); localData = merged;
@@ -420,12 +397,10 @@
             finally { btn.disabled = false; btn.innerText = "☁️ Sync"; }
         };
 
-        window.exportData = () => {
-            const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify(localData)], {type: 'application/json'})); a.download = "PromptBackup.json"; a.click();
-        };
+        window.exportData = () => { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify(localData)], {type: 'application/json'})); a.download = "PromptBackup.json"; a.click(); };
         window.importJSON = (e) => {
             const f = e.target.files[0]; if(!f) return;
-            const r = new FileReader(); r.onload = ev => { localData = JSON.parse(ev.target.result); saveLocal(); renderView('menu'); alert("Restored!"); }; r.readAsText(f);
+            const r = new FileReader(); r.onload = ev => { localData = migrateData(JSON.parse(ev.target.result)); saveLocal(); renderView('menu'); alert("Restored!"); }; r.readAsText(f);
         };
 
         loadLocal(); history.replaceState({ view: 'menu' }, "", "#menu");
