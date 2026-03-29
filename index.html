@@ -1,84 +1,104 @@
 <!DOCTYPE html>
-<html lang="vi">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Prompt Manager Pro</title>
+    <title>Prompt Manager</title>
     <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-firestore-compat.js"></script>
     <style>
-        :root { --bg: #000000; --card: #1c1c1e; --text: #ffffff; --border: #38383a; --primary: #0a84ff; --danger: #ff453a; --success: #32d74b; }
+        :root { --bg: #000000; --card: #1c1c1e; --text: #ffffff; --border: #38383a; --primary: #0a84ff; --danger: #ff453a; --success: #32d74b; --lora: #bf5af2; --trigger: #ffd60a; }
         body { font-family: -apple-system, system-ui, sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 0; padding-bottom: 90px; }
         * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
         .view { display: none; padding: 15px; max-width: 600px; margin: 0 auto; min-height: 100vh; }
         .view.active { display: block; }
-        .card { background: var(--card); border-radius: 8px; padding: 15px; margin-bottom: 15px; box-shadow: 0 1px 3px rgba(0,0,0,0.5); }
-        h1, h2 { margin-top: 0; font-size: 20px; border-bottom: 2px solid var(--border); padding-bottom: 10px; margin-bottom: 15px; }
+        .card { background: var(--card); border-radius: 8px; padding: 15px; margin-bottom: 15px; border: 1px solid var(--border); }
+        h1, h2 { margin-top: 0; font-size: 20px; border-bottom: 1px solid var(--border); padding-bottom: 10px; margin-bottom: 15px; }
         input[type="text"], input[type="number"], textarea { width: 100%; padding: 12px; border: 1px solid var(--border); border-radius: 6px; font-size: 16px; margin-bottom: 10px; outline: none; background: #2c2c2e; color: #fff; }
         input::placeholder { color: #8e8e93; }
         button.btn { padding: 12px 15px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 14px; }
         button.btn-primary { background: var(--primary); color: white; }
         button.btn-danger { background: var(--danger); color: white; }
         button.btn-success { background: var(--success); color: white; }
-        button.btn-block { width: 100%; display: block; margin-bottom: 10px; font-size: 16px; height: 55px; }
-        .list-item { display: flex; align-items: center; background: var(--card); border: 1px solid var(--border); border-radius: 8px; margin-bottom: 10px; }
-        .list-item-content { flex-grow: 1; padding: 15px; font-weight: 500; font-size: 16px; }
-        .badge { background: var(--primary); color: white; padding: 2px 8px; border-radius: 12px; font-size: 12px; margin-left: 8px; }
-        .sort-controls { display: flex; flex-direction: column; border-left: 1px solid var(--border); }
-        .sort-btn { padding: 10px 15px; background: transparent; color: var(--text); border: none; font-size: 14px; cursor: pointer; border-bottom: 1px solid var(--border); }
-        .tag-row { display: flex; align-items: center; padding: 12px; background: var(--card); border-bottom: 1px solid var(--border); }
-        .tag-row label { flex-grow: 1; margin-left: 12px; font-size: 16px; }
-        .tag-row input[type="number"] { width: 65px; margin-bottom: 0; text-align: center; }
-        .top-bar { display: flex; align-items: center; margin-bottom: 15px; }
-        .btn-back { background: none; border: none; font-size: 18px; color: var(--primary); font-weight: bold; padding: 10px; cursor: pointer; }
-        #fab-preview { display: none; position: fixed; bottom: 25px; right: 25px; width: 60px; height: 60px; border-radius: 30px; background: var(--primary); color: white; font-size: 26px; border: none; box-shadow: 0 5px 15px rgba(0,0,0,0.5); z-index: 100; align-items: center; justify-content: center; }
-        #modal-overlay { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.8); z-index: 200; align-items: center; justify-content: center; padding: 20px; }
-        .modal-content { background: var(--card); width: 100%; max-width: 450px; padding: 20px; border-radius: 12px; max-height: 90vh; overflow-y: auto; border: 1px solid var(--border); }
-        .storage-card { border: 1px solid var(--border); border-radius: 8px; padding: 12px; margin-bottom: 15px; }
-        .search-container { margin-bottom: 15px; }
-        .search-input { background: #2c2c2e url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="%238e8e93" viewBox="0 0 16 16"><path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001c.03.04.062.078.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1.007 1.007 0 0 0-.115-.1zM12 6.5a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0z"/></svg>') no-repeat 10px center; padding-left: 35px !important; }
+        button.btn-block { width: 100%; display: block; margin-bottom: 10px; font-size: 16px; height: 50px; }
+        
+        /* List UI */
+        .list-item { display: flex; align-items: center; background: var(--card); border: 1px solid var(--border); border-radius: 8px; margin-bottom: 8px; padding: 12px; cursor: pointer; }
+        .list-item-content { flex-grow: 1; font-weight: 500; font-size: 16px; display: flex; align-items: center; gap: 8px; }
+        .action-btns { display: flex; gap: 10px; margin-left: 10px; }
+        .icon-btn { background: none; border: none; color: #8e8e93; font-size: 16px; cursor: pointer; padding: 5px; }
+        .lora-badge { background: var(--lora); color: white; font-size: 10px; padding: 2px 6px; border-radius: 4px; font-weight: bold; }
+        .rating-input { width: 50px !important; padding: 4px !important; margin: 0 !important; text-align: center; font-size: 12px !important; border-radius: 4px !important; }
+        
+        /* Tag UI */
+        .tag-row { display: flex; align-items: center; padding: 10px 12px; background: var(--card); border: 1px solid var(--border); border-radius: 8px; margin-bottom: 8px; }
+        .tag-row label { flex-grow: 1; margin-left: 10px; font-size: 16px; word-break: break-word; }
+        .tag-row input[type="number"] { width: 60px; margin-bottom: 0; text-align: center; padding: 8px; }
+        .trigger-icon { color: var(--trigger); font-size: 14px; margin-right: 5px; }
+
+        /* Navigation */
+        .breadcrumbs { display: flex; flex-wrap: wrap; gap: 5px; align-items: center; font-size: 14px; color: var(--primary); font-weight: bold; margin-bottom: 15px; padding: 10px; background: var(--card); border-radius: 6px; border: 1px solid var(--border); }
+        .bc-item { cursor: pointer; }
+        .bc-sep { color: #8e8e93; }
+
+        /* Floating Button & Modal */
+        #fab-preview { display: none; position: fixed; bottom: 25px; right: 25px; width: 60px; height: 60px; border-radius: 30px; background: var(--primary); color: white; font-size: 26px; border: none; box-shadow: 0 5px 15px rgba(0,0,0,0.5); z-index: 100; align-items: center; justify-content: center; cursor: pointer;}
+        #modal-overlay, #desc-modal { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.8); z-index: 200; align-items: center; justify-content: center; padding: 20px; }
+        .modal-content { background: var(--card); width: 100%; max-width: 450px; padding: 20px; border-radius: 12px; border: 1px solid var(--border); }
+        
+        .syntax-guide { font-size: 12px; color: #8e8e93; background: #2c2c2e; padding: 10px; border-radius: 6px; margin-bottom: 10px; font-family: monospace; }
+        .add-controls { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 15px; background: var(--card); padding: 12px; border-radius: 8px; border: 1px solid var(--border); }
     </style>
 </head>
 <body>
 
     <div id="view-menu" class="view active">
         <h1>Prompt Manager</h1>
-        <button class="btn btn-primary btn-block" onclick="navigate('groups')">✏️ Create New Prompt</button>
+        <button class="btn btn-primary btn-block" onclick="navigate('workspace')">✏️ Create Prompt</button>
         <button class="btn btn-block" onclick="navigate('storage')">💾 Saved Storage</button>
-        <button id="btnSync" class="btn btn-success btn-block" onclick="syncAndPurge()">☁️ Đồng bộ</button>
-        <button class="btn btn-block" onclick="navigate('data')">⚙️ Settings & Tools</button>
+        <button id="btnSync" class="btn btn-success btn-block" onclick="syncApp()">☁️ Sync</button>
+        <button class="btn btn-block" onclick="navigate('data')">⚙️ Bulk Import & Tools</button>
     </div>
 
-    <div id="view-groups" class="view">
-        <div class="top-bar"><button class="btn-back" onclick="goBack()">❮ Menu</button><h2>Chọn Nhóm</h2></div>
-        <div id="ui-groups"></div>
-        <div class="card" style="display:flex; gap:8px;"><input type="text" id="newGroupName" placeholder="Tên nhóm..."><button class="btn btn-primary" onclick="addGroup()">+ Nhóm</button></div>
-    </div>
+    <div id="view-workspace" class="view">
+        <div class="breadcrumbs" id="ui-breadcrumbs"></div>
+        <div id="ui-items"></div>
 
-    <div id="view-tags" class="view">
-        <div class="top-bar"><button class="btn-back" onclick="goBack()">❮ Quay lại</button><h2 id="current-group-name" style="margin:0; flex-grow:1;">Tags</h2></div>
-        <div class="search-container">
-            <input type="text" id="searchTag" class="search-input" placeholder="Tìm kiếm tag..." onkeyup="filterTags()">
+        <div class="add-controls">
+            <input type="text" id="newItemName" placeholder="Enter name..." style="margin-bottom: 0;">
+            <div style="display:flex; gap:8px; width:100%;" id="add-buttons-container">
+                <button class="btn btn-primary" style="flex:1;" onclick="addItem('group')" id="btn-add-group">+ Group</button>
+                <button class="btn btn-primary" style="flex:1; background:var(--lora);" onclick="addItem('lora')" id="btn-add-lora">+ LoRA</button>
+                <button class="btn btn-primary" style="flex:1;" onclick="addItem('tag')" id="btn-add-tag">+ Tag</button>
+                <button class="btn btn-primary" style="flex:1; background:var(--trigger); color:#000;" onclick="addItem('trigger')" id="btn-add-trigger">+ Trigger</button>
+            </div>
         </div>
-        <div id="ui-tags" style="border-radius:8px; border:1px solid var(--border); overflow:hidden;"></div>
-        <div class="card" style="margin-top:15px; display:flex; gap:8px;"><input type="text" id="newTagName" placeholder="Tên tag..."><button class="btn btn-primary" onclick="addTag()">+ Tag</button></div>
     </div>
 
     <div id="view-storage" class="view">
-        <div class="top-bar"><button class="btn-back" onclick="goBack()">❮ Menu</button><h2>Kho lưu trữ</h2></div>
+        <div class="breadcrumbs"><span class="bc-item" onclick="navigate('menu')">❮ Menu</span> <span class="bc-sep">/</span> <span>Storage</span></div>
         <div id="ui-storage"></div>
     </div>
 
     <div id="view-data" class="view">
-        <div class="top-bar"><button class="btn-back" onclick="goBack()">❮ Menu</button><h2>Công cụ</h2></div>
+        <div class="breadcrumbs"><span class="bc-item" onclick="navigate('menu')">❮ Menu</span> <span class="bc-sep">/</span> <span>Tools</span></div>
         <div class="card">
-            <h3>Nhập văn bản hàng loạt</h3>
-            <textarea id="bulkInput" placeholder="# Tên nhóm&#10;Tag 1" rows="5"></textarea>
-            <button class="btn btn-primary btn-block" onclick="parseBulkText()">Nhập ngay</button>
+            <h3>Bulk Import</h3>
+            <div class="syntax-guide">
+                <b>Syntax Guide:</b><br>
+                # Root Group<br>
+                ## Sub Group (up to ####)<br>
+                ## [LORA] Name of LoRA<br>
+                ! trigger_word<br>
+                normal_tag
+            </div>
+            <textarea id="bulkInput" placeholder="# Group Name&#10;Tag 1" rows="6"></textarea>
+            <button class="btn btn-primary btn-block" onclick="parseBulkText()">Import Now</button>
         </div>
         <div class="card">
-            <button class="btn btn-block" onclick="exportData('json')">Xuất JSON Backup</button>
-            <input type="file" accept=".json" onchange="importJSON(event)">
+            <button class="btn btn-block" onclick="exportData()">Export JSON Backup</button>
+            <label style="font-size:12px; margin-bottom:5px; display:block;">Restore from JSON:</label>
+            <input type="file" accept=".json" onchange="importJSON(event)" style="width:100%; color:white;">
         </div>
     </div>
 
@@ -86,220 +106,303 @@
 
     <div id="modal-overlay">
         <div class="modal-content">
-            <h2>Preview & Options</h2>
-            <textarea id="outputResult" rows="5" readonly style="background:#2c2c2e; border:none;"></textarea>
-            <input type="text" id="saveName" placeholder="Đặt tên prompt...">
+            <h2>Preview Output</h2>
+            <textarea id="outputResult" rows="6" readonly style="background:#2c2c2e; border:none;"></textarea>
+            <input type="text" id="saveName" placeholder="Prompt name to save...">
             <div style="display:flex; gap:8px; margin-bottom:10px;">
-                <button class="btn btn-primary" style="flex:1" onclick="copyResult()">Sao chép</button>
-                <button class="btn btn-primary" style="flex:1" onclick="savePromptState()">Lưu Kho</button>
+                <button class="btn btn-primary" style="flex:1" onclick="copyResult()">Copy</button>
+                <button class="btn btn-primary" style="flex:1" onclick="savePromptState()">Save</button>
             </div>
-            <button class="btn btn-danger btn-block" onclick="resetAllTags()">Reset Tags</button>
-            <button class="btn btn-block" onclick="closeModal()">Đóng</button>
+            <button class="btn btn-danger btn-block" onclick="resetAllTags()">Clear All Tags</button>
+            <button class="btn btn-block" onclick="closeModal('modal-overlay')">Close</button>
+        </div>
+    </div>
+
+    <div id="desc-modal">
+        <div class="modal-content">
+            <h2>LoRA Description</h2>
+            <textarea id="loraDescInput" rows="6" placeholder="Write description here..."></textarea>
+            <button class="btn btn-primary btn-block" onclick="saveLoraDesc()">Save</button>
+            <button class="btn btn-block" onclick="closeModal('desc-modal')">Close</button>
         </div>
     </div>
 
     <script>
-	const firebaseConfig = {
-  	apiKey: "AIzaSyBIgCJ0luQ_-vooCcAB7OCYO-Hzi5I4rY0",
-  	authDomain: "my-prompt-app-ce6b2.firebaseapp.com",
-  	databaseURL: "https://my-prompt-app-ce6b2-default-rtdb.asia-southeast1.firebasedatabase.app",
-  	projectId: "my-prompt-app-ce6b2",
-  	storageBucket: "my-prompt-app-ce6b2.firebasestorage.app",
-  	messagingSenderId: "1057898416087",
-  	appId: "1:1057898416087:web:733504a126c9d46591ad92"
-	};
-        let db = null;
-        if (firebaseConfig.apiKey !== "DÁN_TẠI_ĐÂY") {
-            firebase.initializeApp(firebaseConfig);
-            db = firebase.firestore();
-        }
-        const DOC_ID = "my_secret_doc_id_9999";
-
-        let localData = { groups: {}, tags: {}, prompts: {}, groupOrder: [] };
+        // --- FIREBASE CONFIGURATION ---
+        const firebaseConfig = {
+            apiKey: "AIzaSyBIgCJ0luQ_-vooCcAB7OCYO-Hzi5I4rY0",
+            authDomain: "my-prompt-app-ce6b2.firebaseapp.com",
+            databaseURL: "https://my-prompt-app-ce6b2-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "my-prompt-app-ce6b2",
+            storageBucket: "my-prompt-app-ce6b2.firebasestorage.app",
+            messagingSenderId: "1057898416087",
+            appId: "1:1057898416087:web:733504a126c9d46591ad92"
+        };
         
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+        const DOC_ID = "main_prompt_database"; // Secure hardcoded document ID
+
+        // --- CORE DATA ---
+        let localData = { groups: {}, tags: {}, prompts: {} };
+        let activeGroupId = null; // null = Root level
+        let editingDescId = null; // Tracks which LoRA is being edited
+
         function loadLocal() {
-            try {
-                const raw = localStorage.getItem('promptAppData');
-                if(raw) localData = JSON.parse(raw);
-            } catch(e) { console.error("Lỗi load dữ liệu"); }
+            try { const raw = localStorage.getItem('promptAppPro'); if(raw) localData = JSON.parse(raw); } 
+            catch(e) { console.error("Load failed"); }
         }
         function saveLocal() {
-            localStorage.setItem('promptAppData_backup', localStorage.getItem('promptAppData'));
-            localStorage.setItem('promptAppData', JSON.stringify(localData));
+            localStorage.setItem('promptAppPro_backup', localStorage.getItem('promptAppPro'));
+            localStorage.setItem('promptAppPro', JSON.stringify(localData));
         }
 
         const genId = () => Date.now().toString(36) + Math.random().toString(36).substring(2);
         const getTs = () => Date.now();
 
-        let activeGroupId = null;
+        // --- NAVIGATION & BREADCRUMBS ---
         window.navigate = function(view, param = null) {
-            activeGroupId = param;
-            history.pushState({ view, param }, "", "#" + (param ? view + "_" + param : view));
+            if(view === 'workspace') activeGroupId = param;
+            history.pushState({ view, param }, "", "#" + view);
             renderView(view);
         };
 
         window.goBack = () => history.back();
-
         window.onpopstate = (e) => {
-            if(document.getElementById('modal-overlay').style.display === 'flex') {
-                document.getElementById('modal-overlay').style.display = 'none';
-                return;
-            }
+            if(document.getElementById('modal-overlay').style.display === 'flex') { closeModal('modal-overlay'); return; }
+            if(document.getElementById('desc-modal').style.display === 'flex') { closeModal('desc-modal'); return; }
             const state = e.state || { view: 'menu' };
-            activeGroupId = state.param;
+            if(state.view === 'workspace') activeGroupId = state.param;
             renderView(state.view);
         };
 
         function renderView(name) {
             document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
-            const target = document.getElementById('view-' + name);
-            if(target) target.classList.add('active');
-            
-            document.getElementById('fab-preview').style.display = (name === 'groups' || name === 'tags') ? 'flex' : 'none';
-            if(name === 'groups') renderGroups();
-            if(name === 'tags') {
-                document.getElementById('searchTag').value = "";
-                renderTags();
-            }
+            document.getElementById('view-' + name).classList.add('active');
+            document.getElementById('fab-preview').style.display = (name === 'workspace') ? 'flex' : 'none';
+            if(name === 'workspace') renderWorkspace();
             if(name === 'storage') renderStorage();
         }
 
-        window.renderGroups = () => {
-            const container = document.getElementById('ui-groups');
-            localData.groupOrder = localData.groupOrder.filter(id => localData.groups[id] && !localData.groups[id].isDeleted);
-            Object.keys(localData.groups).forEach(id => {
-                if(!localData.groups[id].isDeleted && !localData.groupOrder.includes(id)) localData.groupOrder.push(id);
+        // Calculate Depth (Max 4)
+        function getDepth(id) {
+            let depth = 0; let curr = id;
+            while(curr && localData.groups[curr]) { depth++; curr = localData.groups[curr].parentId; }
+            return depth;
+        }
+
+        // --- RENDER WORKSPACE ---
+        window.renderWorkspace = () => {
+            // Render Breadcrumbs
+            let bcHtml = `<span class="bc-item" onclick="navigate('menu')">Home</span>`;
+            if (activeGroupId) {
+                let path = []; let curr = activeGroupId;
+                while(curr && localData.groups[curr]) { path.unshift({id: curr, name: localData.groups[curr].name}); curr = localData.groups[curr].parentId; }
+                path.forEach(p => { bcHtml += ` <span class="bc-sep">/</span> <span class="bc-item" onclick="navigate('workspace', '${p.id}')">${p.name}</span>`; });
+            }
+            document.getElementById('ui-breadcrumbs').innerHTML = bcHtml;
+
+            // Determine UI context
+            const depth = getDepth(activeGroupId);
+            const isInsideLora = activeGroupId && localData.groups[activeGroupId].type === 'lora';
+
+            // Configure Add Buttons visibility
+            document.getElementById('btn-add-group').style.display = depth < 3 ? 'block' : 'none';
+            document.getElementById('btn-add-lora').style.display = depth < 3 ? 'block' : 'none';
+            document.getElementById('btn-add-trigger').style.display = isInsideLora ? 'block' : 'none';
+
+            // Auto-Sort Groups (A-Z)
+            let groups = Object.entries(localData.groups).filter(([id, g]) => g.parentId === activeGroupId && !g.isDeleted)
+                .sort((a,b) => a[1].name.localeCompare(b[1].name));
+            
+            // Auto-Sort Tags (Triggers first, then A-Z)
+            let tags = Object.entries(localData.tags).filter(([id, t]) => t.parentId === activeGroupId && !t.isDeleted)
+                .sort((a,b) => {
+                    if(a[1].type === 'trigger' && b[1].type !== 'trigger') return -1;
+                    if(b[1].type === 'trigger' && a[1].type !== 'trigger') return 1;
+                    return a[1].name.localeCompare(b[1].name);
+                });
+
+            let html = "";
+            // Draw Groups
+            groups.forEach(([id, g]) => {
+                const isLora = g.type === 'lora';
+                html += `
+                <div class="list-item" onclick="navigate('workspace', '${id}')">
+                    <div class="list-item-content">
+                        ${isLora ? `<span class="lora-badge">LORA</span>` : `📁`} 
+                        ${g.name}
+                    </div>
+                    ${isLora ? `<input type="text" class="rating-input" value="${g.rating}" placeholder="Rate" onclick="event.stopPropagation()" onchange="updGroup('${id}', 'rating', this.value)">` : ''}
+                    <div class="action-btns" onclick="event.stopPropagation()">
+                        ${isLora ? `<button class="icon-btn" onclick="openDesc('${id}')">ℹ️</button>` : ''}
+                        <button class="icon-btn" onclick="renameItem('groups', '${id}')">✏️</button>
+                        <button class="icon-btn" style="color:var(--danger);" onclick="deleteItem('groups', '${id}')">✕</button>
+                    </div>
+                </div>`;
             });
 
-            container.innerHTML = localData.groupOrder.map((id, idx) => {
-                const g = localData.groups[id];
-                const count = Object.values(localData.tags).filter(t => t.groupId === id && !t.isDeleted && t.checked).length;
-                return `<div class="list-item" onclick="navigate('tags', '${id}')">
-                    <div class="list-item-content">${g.name} ${count > 0 ? `<span class="badge">${count}</span>` : ''}</div>
-                    <div class="sort-controls" onclick="event.stopPropagation()">
-                        <button class="sort-btn" onclick="moveGrp(${idx}, -1)">▲</button>
-                        <button class="sort-btn" onclick="moveGrp(${idx}, 1)">▼</button>
-                        <button class="sort-btn" style="color:red" onclick="deleteObj('groups', '${id}')">✕</button>
-                    </div></div>`;
-            }).join('');
-        };
-
-        window.renderTags = () => {
-            document.getElementById('current-group-name').innerText = localData.groups[activeGroupId].name;
-            const container = document.getElementById('ui-tags');
-            container.innerHTML = Object.keys(localData.tags).filter(id => localData.tags[id].groupId === activeGroupId && !localData.tags[id].isDeleted).map(id => {
-                const t = localData.tags[id];
-                return `<div class="tag-row">
+            // Draw Tags
+            tags.forEach(([id, t]) => {
+                const isTrig = t.type === 'trigger';
+                html += `
+                <div class="tag-row">
                     <input type="checkbox" id="chk_${id}" ${t.checked ? 'checked' : ''} onchange="updTag('${id}')">
-                    <label for="chk_${id}">${t.name}</label>
+                    <label for="chk_${id}">${isTrig ? '<span class="trigger-icon">⚡</span>' : ''}${t.name}</label>
                     <input type="number" id="w_${id}" step="0.1" value="${t.weight}" onchange="updTag('${id}')">
-                    <button class="btn" style="color:red; background:none" onclick="deleteObj('tags', '${id}')">✕</button></div>`;
-            }).join('');
-        };
-
-        window.filterTags = () => {
-            const query = document.getElementById('searchTag').value.toLowerCase().trim();
-            const rows = document.querySelectorAll('.tag-row');
-            rows.forEach(row => {
-                const label = row.querySelector('label').innerText.toLowerCase();
-                row.style.display = label.includes(query) ? 'flex' : 'none';
+                    <div class="action-btns">
+                        <button class="icon-btn" onclick="renameItem('tags', '${id}')">✏️</button>
+                        <button class="icon-btn" style="color:var(--danger);" onclick="deleteItem('tags', '${id}')">✕</button>
+                    </div>
+                </div>`;
             });
+            document.getElementById('ui-items').innerHTML = html;
         };
 
-        window.updTag = (id) => {
-            localData.tags[id].checked = document.getElementById('chk_'+id).checked;
-            localData.tags[id].weight = parseFloat(document.getElementById('w_'+id).value) || 1.0;
-            localData.tags[id].timestamp = getTs();
-            saveLocal();
-        };
-        window.moveGrp = (idx, dir) => {
-            const arr = localData.groupOrder;
-            if(idx+dir < 0 || idx+dir >= arr.length) return;
-            [arr[idx], arr[idx+dir]] = [arr[idx+dir], arr[idx]];
-            saveLocal(); renderGroups();
-        };
-        window.deleteObj = (type, id) => {
-            if(!confirm("Xóa?")) return;
-            localData[type][id].isDeleted = true;
-            localData[type][id].timestamp = getTs();
-            saveLocal(); renderGroups(); if(type === 'tags') renderTags();
-        };
-        
-        window.addGroup = () => {
-            const name = document.getElementById('newGroupName').value.trim();
-            if(!name) return;
-            const nameLower = name.toLowerCase();
-            const isDuplicate = Object.values(localData.groups).some(g => !g.isDeleted && g.name.toLowerCase() === nameLower);
-            if (isDuplicate) return alert("Tên nhóm này đã tồn tại!");
-            const id = genId();
-            localData.groups[id] = { name, timestamp: getTs(), isDeleted: false };
-            localData.groupOrder.push(id);
-            saveLocal(); renderGroups();
-            document.getElementById('newGroupName').value = "";
+        // --- CRUD OPERATIONS ---
+        window.addItem = (type) => {
+            const name = document.getElementById('newItemName').value.trim();
+            if(!name) return alert("Please enter a name");
+            const ts = getTs();
+            if(type === 'group' || type === 'lora') {
+                localData.groups[genId()] = { name, type, parentId: activeGroupId, description: "", rating: "", timestamp: ts, isDeleted: false };
+            } else {
+                localData.tags[genId()] = { name, type, parentId: activeGroupId, weight: 1.0, checked: false, timestamp: ts, isDeleted: false };
+            }
+            saveLocal(); renderWorkspace();
+            document.getElementById('newItemName').value = "";
         };
 
-        window.addTag = () => {
-            const name = document.getElementById('newTagName').value.trim();
-            if(!name) return;
-            const nameLower = name.toLowerCase();
-            const isDuplicate = Object.values(localData.tags).some(t => !t.isDeleted && t.groupId === activeGroupId && t.name.toLowerCase() === nameLower);
-            if (isDuplicate) return alert("Tag này đã tồn tại trong nhóm!");
-            localData.tags[genId()] = { groupId: activeGroupId, name, weight: 1.0, checked: false, timestamp: getTs(), isDeleted: false };
-            saveLocal(); renderTags();
-            document.getElementById('newTagName').value = "";
+        window.updGroup = (id, key, val) => { localData.groups[id][key] = val; localData.groups[id].timestamp = getTs(); saveLocal(); };
+        window.updTag = (id) => { 
+            localData.tags[id].checked = document.getElementById('chk_'+id).checked; 
+            localData.tags[id].weight = parseFloat(document.getElementById('w_'+id).value) || 1.0; 
+            localData.tags[id].timestamp = getTs(); saveLocal(); 
         };
+
+        window.renameItem = (collection, id) => {
+            const newName = prompt("Rename:", localData[collection][id].name);
+            if(newName && newName.trim()) { localData[collection][id].name = newName.trim(); localData[collection][id].timestamp = getTs(); saveLocal(); renderWorkspace(); }
+        };
+
+        window.deleteItem = (collection, id) => {
+            if(collection === 'groups') {
+                const hasChildG = Object.values(localData.groups).some(g => g.parentId === id && !g.isDeleted);
+                const hasChildT = Object.values(localData.tags).some(t => t.parentId === id && !t.isDeleted);
+                if(hasChildG || hasChildT) return alert("Restrict Delete: Cannot delete. Group is not empty.");
+            }
+            if(!confirm("Confirm delete?")) return;
+            localData[collection][id].isDeleted = true; localData[collection][id].timestamp = getTs();
+            saveLocal(); renderWorkspace();
+        };
+
+        // --- LORA DESCRIPTION MODAL ---
+        window.openDesc = (id) => {
+            editingDescId = id;
+            document.getElementById('loraDescInput').value = localData.groups[id].description || "";
+            document.getElementById('desc-modal').style.display = 'flex';
+        };
+        window.saveLoraDesc = () => {
+            if(editingDescId) { localData.groups[editingDescId].description = document.getElementById('loraDescInput').value; localData.groups[editingDescId].timestamp = getTs(); saveLocal(); }
+            closeModal('desc-modal');
+        };
+
+        // --- MULTILINE OUTPUT GENERATION ---
+        function getRootGroup(id) {
+            let curr = id;
+            while(curr && localData.groups[curr] && localData.groups[curr].parentId !== null) { curr = localData.groups[curr].parentId; }
+            return curr || "root";
+        }
 
         window.openModal = () => {
-            const res = Object.values(localData.tags).filter(t => !t.isDeleted && t.checked).map(t => t.weight === 1.0 ? t.name : `(${t.name}:${t.weight})`);
-            document.getElementById('outputResult').value = res.join(", ");
+            let outputLines = {}; // Map: RootID -> Array of formatted tags
+            
+            Object.values(localData.tags).forEach(t => {
+                if(!t.isDeleted && t.checked) {
+                    const str = t.weight === 1.0 ? t.name : `(${t.name}:${t.weight})`;
+                    const rId = getRootGroup(t.parentId);
+                    if(!outputLines[rId]) outputLines[rId] = [];
+                    outputLines[rId].push(str);
+                }
+            });
+
+            // Join tags within the same root group with commas, and append a comma at the end of the line
+            let finalOutput = Object.values(outputLines).map(tagsArr => tagsArr.join(", ") + ",").join("\n");
+            
+            document.getElementById('outputResult').value = finalOutput;
             document.getElementById('modal-overlay').style.display = 'flex';
-            history.pushState({ modal: true }, "", "#preview");
-        };
-        window.closeModal = () => { document.getElementById('modal-overlay').style.display = 'none'; if(history.state && history.state.modal) history.back(); };
-        window.copyResult = () => { navigator.clipboard.writeText(document.getElementById('outputResult').value); alert("Đã Copy!"); };
-        window.resetAllTags = () => {
-            Object.values(localData.tags).forEach(t => { t.checked = false; t.weight = 1.0; t.timestamp = getTs(); });
-            saveLocal(); closeModal(); renderGroups();
         };
 
+        window.closeModal = (id) => { document.getElementById(id).style.display = 'none'; };
+        window.copyResult = () => { navigator.clipboard.writeText(document.getElementById('outputResult').value); alert("Copied!"); };
+        window.resetAllTags = () => { if(confirm("Clear all tags?")){ Object.values(localData.tags).forEach(t => { t.checked = false; t.weight = 1.0; t.timestamp = getTs(); }); saveLocal(); closeModal('modal-overlay'); renderWorkspace(); } };
+
+        // --- STORAGE ---
         window.savePromptState = () => {
             const name = document.getElementById('saveName').value.trim();
-            if(!name) return alert("Nhập tên!");
-            const state = {};
-            Object.keys(localData.tags).forEach(id => { if(localData.tags[id].checked) state[id] = localData.tags[id].weight; });
+            if(!name) return alert("Enter prompt name!");
+            const state = {}; Object.keys(localData.tags).forEach(id => { if(localData.tags[id].checked) state[id] = localData.tags[id].weight; });
             localData.prompts[genId()] = { name, content: document.getElementById('outputResult').value, state, timestamp: getTs(), isDeleted: false };
-            saveLocal(); closeModal(); alert("Đã lưu!");
+            saveLocal(); closeModal('modal-overlay'); alert("Saved!");
         };
-
         window.renderStorage = () => {
             document.getElementById('ui-storage').innerHTML = Object.keys(localData.prompts).filter(id => !localData.prompts[id].isDeleted).map(id => {
                 const p = localData.prompts[id];
-                return `<div class="storage-card"><strong>${p.name}</strong><p style="font-size:12px;background:#2c2c2e;padding:5px;border-radius:4px;">${p.content}</p>
-                    <button class="btn btn-primary" onclick="loadP('${id}')">🔁 Tải vào Create</button>
-                    <button class="btn btn-danger" onclick="deleteObj('prompts', '${id}'); renderStorage();">Xóa</button></div>`;
+                return `<div class="card"><strong>${p.name}</strong><pre style="font-size:12px; white-space:pre-wrap;">${p.content}</pre>
+                    <button class="btn btn-primary" onclick="loadP('${id}')">Load to Workspace</button>
+                    <button class="btn btn-danger" style="margin-top:5px;" onclick="deleteItem('prompts', '${id}'); renderStorage();">Delete</button></div>`;
             }).join('');
         };
         window.loadP = (id) => {
-            const s = localData.prompts[id].state;
+            const s = localData.prompts[id].state; const ts = getTs();
             Object.keys(localData.tags).forEach(tid => {
                 if(localData.tags[tid].isDeleted) return;
-                localData.tags[tid].checked = !!s[tid];
-                localData.tags[tid].weight = s[tid] || 1.0;
-                localData.tags[tid].timestamp = getTs();
+                localData.tags[tid].checked = !!s[tid]; localData.tags[tid].weight = s[tid] || 1.0; localData.tags[tid].timestamp = ts;
             });
-            saveLocal(); navigate('groups');
+            saveLocal(); navigate('workspace');
         };
 
-        window.syncAndPurge = async function() {
-            if(!db) return alert("Chưa cấu hình Firebase!");
+        // --- BULK IMPORT (Hierarchical) ---
+        window.parseBulkText = () => {
+            const lines = document.getElementById('bulkInput').value.split('\n');
+            let stack = []; // stack[level] = parentId
+            const ts = getTs();
+
+            lines.forEach(l => {
+                l = l.trim(); if(!l) return;
+                const hashMatch = l.match(/^(#+)\s+(.*)/);
+                if (hashMatch) {
+                    const level = hashMatch[1].length; 
+                    if(level > 4) return; // Prevent abyss
+                    let rawName = hashMatch[2].trim();
+                    let isLora = rawName.toUpperCase().startsWith('[LORA]');
+                    let name = isLora ? rawName.substring(6).trim() : rawName;
+                    let pId = level === 1 ? null : stack[level - 1];
+                    let gid = genId();
+                    localData.groups[gid] = { name, type: isLora ? 'lora' : 'group', parentId: pId, description: "", rating: "", timestamp: ts, isDeleted: false };
+                    stack[level] = gid;
+                    stack.length = level + 1; // Drop deeper levels
+                } else {
+                    let pId = stack.length > 0 ? stack[stack.length - 1] : null;
+                    let isTrigger = l.startsWith('!');
+                    let name = isTrigger ? l.substring(1).trim() : l;
+                    localData.tags[genId()] = { name, type: isTrigger ? 'trigger' : 'tag', parentId: pId, weight: 1.0, checked: false, timestamp: ts, isDeleted: false };
+                }
+            });
+            saveLocal(); document.getElementById('bulkInput').value = ""; alert("Import Successful!");
+        };
+
+        // --- FIREBASE SYNC (Hidden Purge) ---
+        window.syncApp = async function() {
             const btn = document.getElementById('btnSync');
-            btn.disabled = true; btn.innerText = "⏳ Đang đồng bộ...";
+            btn.disabled = true; btn.innerText = "⏳ Syncing...";
             try {
                 const docRef = db.collection("AppData").doc(DOC_ID);
                 await db.runTransaction(async (t) => {
                     const snap = await t.get(docRef);
-                    const cloud = snap.exists ? snap.data() : { groups:{}, tags:{}, prompts:{}, groupOrder:[] };
-                    const merged = { groups:{}, tags:{}, prompts:{}, groupOrder: localData.groupOrder };
+                    const cloud = snap.exists ? snap.data() : { groups:{}, tags:{}, prompts:{} };
+                    const merged = { groups:{}, tags:{}, prompts:{} };
+                    
                     ['groups','tags','prompts'].forEach(k => {
                         const allIds = new Set([...Object.keys(localData[k]), ...Object.keys(cloud[k]||{})]);
                         allIds.forEach(id => {
@@ -307,51 +410,25 @@
                             if(!l) merged[k][id] = c; else if(!c) merged[k][id] = l;
                             else merged[k][id] = l.timestamp > c.timestamp ? l : c;
                         });
+                        // Purge (Hard Delete)
                         Object.keys(merged[k]).forEach(id => { if(merged[k][id].isDeleted) delete merged[k][id]; });
                     });
-                    merged.groupOrder = merged.groupOrder.filter(id => merged.groups[id]);
-                    t.set(docRef, merged);
-                    localData = merged;
+                    t.set(docRef, merged); localData = merged;
                 });
-                saveLocal(); renderView('menu'); alert("Xong!");
-            } catch(e) { alert("Lỗi: " + e.message); }
-            finally { btn.disabled = false; btn.innerText = "☁️ Đồng bộ"; }
+                saveLocal(); alert("Sync Complete!");
+            } catch(e) { alert("Sync Error: " + e.message); }
+            finally { btn.disabled = false; btn.innerText = "☁️ Sync"; }
         };
 
-        window.parseBulkText = () => {
-            const lines = document.getElementById('bulkInput').value.split('\n');
-            let gid = null;
-            lines.forEach(l => {
-                l = l.trim(); if(!l) return;
-                if(l.startsWith('#')) { 
-                    const name = l.substring(1).trim();
-                    const nameLower = name.toLowerCase();
-                    const existingGroup = Object.entries(localData.groups).find(([id, g]) => !g.isDeleted && g.name.toLowerCase() === nameLower);
-                    if (existingGroup) { gid = existingGroup[0]; } 
-                    else { gid = genId(); localData.groups[gid] = { name, timestamp: getTs(), isDeleted: false }; localData.groupOrder.push(gid); }
-                }
-                else if(gid) {
-                    const nameLower = l.toLowerCase();
-                    const isDuplicateTag = Object.values(localData.tags).some(t => !t.isDeleted && t.groupId === gid && t.name.toLowerCase() === nameLower);
-                    if (!isDuplicateTag) { localData.tags[genId()] = { groupId: gid, name: l, weight: 1.0, checked: false, timestamp: getTs(), isDeleted: false }; }
-                }
-            });
-            saveLocal(); renderView('menu'); alert("Nhập hoàn tất!");
+        window.exportData = () => {
+            const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify(localData)], {type: 'application/json'})); a.download = "PromptBackup.json"; a.click();
         };
-
-        window.exportData = (type) => {
-            const a = document.createElement('a');
-            a.href = URL.createObjectURL(new Blob([JSON.stringify(localData)], {type: 'application/json'}));
-            a.download = "PromptBackup.json"; a.click();
-        };
-
         window.importJSON = (e) => {
             const f = e.target.files[0]; if(!f) return;
-            const r = new FileReader(); r.onload = ev => { localData = JSON.parse(ev.target.result); saveLocal(); renderView('menu'); alert("Khôi phục thành công!"); }; r.readAsText(f);
+            const r = new FileReader(); r.onload = ev => { localData = JSON.parse(ev.target.result); saveLocal(); renderView('menu'); alert("Restored!"); }; r.readAsText(f);
         };
 
-        loadLocal();
-        history.replaceState({ view: 'menu' }, "", "#menu");
+        loadLocal(); history.replaceState({ view: 'menu' }, "", "#menu");
     </script>
 </body>
 </html>
