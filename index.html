@@ -22,7 +22,6 @@
         button.btn-success { background: var(--success); color: white; }
         button.btn-block { width: 100%; display: block; margin-bottom: 10px; font-size: 16px; height: 50px; }
         
-        /* List UI */
         .list-item { display: flex; align-items: center; background: var(--card); border: 1px solid var(--border); border-radius: 8px; margin-bottom: 8px; padding: 12px; cursor: pointer; }
         .list-item-content { flex-grow: 1; font-weight: 500; font-size: 16px; display: flex; align-items: center; gap: 8px; }
         .action-btns { display: flex; gap: 8px; margin-left: 10px; align-items: center; }
@@ -30,7 +29,6 @@
         .lora-badge { background: var(--lora); color: white; font-size: 10px; padding: 2px 6px; border-radius: 4px; font-weight: bold; }
         .rating-input { width: 50px !important; padding: 4px !important; margin: 0 !important; text-align: center; font-size: 12px !important; border-radius: 4px !important; }
         
-        /* Tag UI */
         .tag-row { display: flex; align-items: center; padding: 10px 12px; background: var(--card); border: 1px solid var(--border); border-radius: 8px; margin-bottom: 8px; }
         .tag-row label { flex-grow: 1; margin-left: 10px; font-size: 16px; word-break: break-word; }
         .tag-row input[type="number"] { width: 60px; margin-bottom: 0; text-align: center; padding: 8px; }
@@ -144,30 +142,10 @@
         let activeGroupId = null; 
         let editingDescId = null; 
 
-        // --- DATA MIGRATION ENGINE (Khắc phục lỗi tàng hình & Cấp sortIndex) ---
-        function migrateData(data) {
-            if(!data) data = { groups: {}, tags: {}, prompts: {} };
-            if(!data.groups) data.groups = {};
-            if(!data.tags) data.tags = {};
-            if(!data.prompts) data.prompts = {};
-
-            Object.values(data.groups).forEach(g => {
-                if(g.parentId === undefined) g.parentId = null;
-                if(!g.type) g.type = 'group';
-                if(g.sortIndex === undefined) g.sortIndex = g.timestamp || Date.now(); // Cấp sortIndex tự động cho dữ liệu cũ
-            });
-            Object.values(data.tags).forEach(t => {
-                if(t.groupId !== undefined) { t.parentId = t.groupId; delete t.groupId; }
-                if(t.parentId === undefined) t.parentId = null;
-                if(!t.type) t.type = 'tag';
-            });
-            return data;
-        }
-
         function loadLocal() {
             try { 
                 const raw = localStorage.getItem('promptAppPro'); 
-                if(raw) localData = migrateData(JSON.parse(raw)); 
+                if(raw) localData = JSON.parse(raw); 
             } catch(e) { console.error("Load failed"); }
         }
         function saveLocal() {
@@ -225,11 +203,9 @@
             document.getElementById('btn-add-lora').style.display = depth < 3 ? 'block' : 'none';
             document.getElementById('btn-add-trigger').style.display = isInsideLora ? 'block' : 'none';
 
-            // GROUPS: Xếp bằng tay qua sortIndex
             let groups = Object.entries(localData.groups).filter(([id, g]) => g.parentId === activeGroupId && !g.isDeleted)
                 .sort((a,b) => (a[1].sortIndex || 0) - (b[1].sortIndex || 0));
             
-            // TAGS: Tự động xếp A-Z (Trigger lên đầu)
             let tags = Object.entries(localData.tags).filter(([id, t]) => t.parentId === activeGroupId && !t.isDeleted)
                 .sort((a,b) => {
                     if(a[1].type === 'trigger' && b[1].type !== 'trigger') return -1;
@@ -301,23 +277,18 @@
             saveLocal(); renderWorkspace();
         };
 
-        // MOVE GROUP/LORA (Thuật toán Re-indexing)
         window.moveGrp = (id, dir) => {
             const g = localData.groups[id];
             if(!g) return;
-            
-            // Lấy tất cả anh em cùng nhà và xếp theo sortIndex hiện tại
             let siblings = Object.keys(localData.groups)
                 .filter(k => localData.groups[k].parentId === g.parentId && !localData.groups[k].isDeleted)
                 .sort((a,b) => (localData.groups[a].sortIndex || 0) - (localData.groups[b].sortIndex || 0));
             
             let idx = siblings.indexOf(id);
-            if(idx + dir < 0 || idx + dir >= siblings.length) return; // Kịch kim
+            if(idx + dir < 0 || idx + dir >= siblings.length) return; 
             
-            // Hoán vị trong mảng
             [siblings[idx], siblings[idx+dir]] = [siblings[idx+dir], siblings[idx]];
             
-            // Re-index (Đánh lại số từ 0, 1, 2...) để triệt tiêu lỗi trùng sortIndex
             const ts = getTs();
             siblings.forEach((k, i) => {
                 localData.groups[k].sortIndex = i;
@@ -382,7 +353,7 @@
         window.parseBulkText = () => {
             const lines = document.getElementById('bulkInput').value.split('\n');
             let stack = []; 
-            let importSortCounter = getTs(); // Tự động cấp sortIndex cho dữ liệu import
+            let importSortCounter = getTs(); 
 
             lines.forEach(l => {
                 l = l.trim(); if(!l) return;
@@ -415,7 +386,7 @@
                 const docRef = db.collection("AppData").doc(DOC_ID);
                 await db.runTransaction(async (t) => {
                     const snap = await t.get(docRef);
-                    const cloud = snap.exists ? migrateData(snap.data()) : { groups:{}, tags:{}, prompts:{} };
+                    const cloud = snap.exists ? snap.data() : { groups:{}, tags:{}, prompts:{} };
                     const merged = { groups:{}, tags:{}, prompts:{} };
                     
                     ['groups','tags','prompts'].forEach(k => {
@@ -437,7 +408,7 @@
         window.exportData = () => { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify(localData)], {type: 'application/json'})); a.download = "PromptBackup.json"; a.click(); };
         window.importJSON = (e) => {
             const f = e.target.files[0]; if(!f) return;
-            const r = new FileReader(); r.onload = ev => { localData = migrateData(JSON.parse(ev.target.result)); saveLocal(); renderView('menu'); alert("Restored!"); }; r.readAsText(f);
+            const r = new FileReader(); r.onload = ev => { localData = JSON.parse(ev.target.result); saveLocal(); renderView('menu'); alert("Restored!"); }; r.readAsText(f);
         };
 
         loadLocal(); history.replaceState({ view: 'menu' }, "", "#menu");
