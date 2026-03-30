@@ -52,6 +52,7 @@
         <h1>Prompt Manager</h1>
         <button class="btn btn-primary btn-block" onclick="navigate('workspace')">✏️ Create Prompt</button>
         <button class="btn btn-block" onclick="navigate('storage')">💾 Saved Storage</button>
+        <button class="btn btn-block" style="color: #ffd60a; border: 1px solid #ffd60a; background: transparent;" onclick="navigate('tips')">💡 Tips & Notes</button>
         <button id="btnSync" class="btn btn-success btn-block" onclick="syncApp()">☁️ Sync</button>
         <button class="btn btn-block" onclick="navigate('data')">⚙️ Bulk Import & Tools</button>
     </div>
@@ -68,6 +69,14 @@
                 <button class="btn btn-primary" style="flex:1;" onclick="addItem('tag')" id="btn-add-tag">+ Tag</button>
                 <button class="btn btn-primary" style="flex:1; background:var(--trigger); color:#000;" onclick="addItem('trigger')" id="btn-add-trigger">+ Trigger</button>
             </div>
+        </div>
+    </div>
+
+    <div id="view-tips" class="view">
+        <div class="breadcrumbs"><span class="bc-item" onclick="navigate('menu')">❮ Menu</span> <span class="bc-sep">/</span> <span>Tips & Notes</span></div>
+        <div class="card">
+            <textarea id="tipsInput" rows="18" placeholder="Write your personal tips, tricks, and notes here..."></textarea>
+            <button class="btn btn-primary btn-block" onclick="saveTips()">Save Tips</button>
         </div>
     </div>
 
@@ -138,14 +147,17 @@
         const db = firebase.firestore();
         const DOC_ID = "main_prompt_database";
 
-        let localData = { groups: {}, tags: {}, prompts: {} };
+        let localData = { groups: {}, tags: {}, prompts: {}, tips: { content: "", timestamp: 0 } };
         let activeGroupId = null; 
         let editingDescId = null; 
 
         function loadLocal() {
             try { 
                 const raw = localStorage.getItem('promptAppPro'); 
-                if(raw) localData = JSON.parse(raw); 
+                if(raw) {
+                    localData = JSON.parse(raw);
+                    if(!localData.tips) localData.tips = { content: "", timestamp: 0 };
+                } 
             } catch(e) { console.error("Load failed"); }
         }
         function saveLocal() {
@@ -176,8 +188,10 @@
             document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
             document.getElementById('view-' + name).classList.add('active');
             document.getElementById('fab-preview').style.display = (name === 'workspace') ? 'flex' : 'none';
+            
             if(name === 'workspace') renderWorkspace();
             if(name === 'storage') renderStorage();
+            if(name === 'tips') document.getElementById('tipsInput').value = localData.tips.content;
         }
 
         function getDepth(id) {
@@ -300,6 +314,14 @@
         window.openDesc = (id) => { editingDescId = id; document.getElementById('loraDescInput').value = localData.groups[id].description || ""; document.getElementById('desc-modal').style.display = 'flex'; };
         window.saveLoraDesc = () => { if(editingDescId) { localData.groups[editingDescId].description = document.getElementById('loraDescInput').value; localData.groups[editingDescId].timestamp = getTs(); saveLocal(); } closeModal('desc-modal'); };
 
+        // --- TIPS LOGIC ---
+        window.saveTips = () => {
+            localData.tips.content = document.getElementById('tipsInput').value;
+            localData.tips.timestamp = getTs();
+            saveLocal();
+            alert("Tips saved successfully!");
+        };
+
         // --- OUTPUT ---
         function getRootGroup(id) {
             let curr = id;
@@ -386,8 +408,8 @@
                 const docRef = db.collection("AppData").doc(DOC_ID);
                 await db.runTransaction(async (t) => {
                     const snap = await t.get(docRef);
-                    const cloud = snap.exists ? snap.data() : { groups:{}, tags:{}, prompts:{} };
-                    const merged = { groups:{}, tags:{}, prompts:{} };
+                    const cloud = snap.exists ? snap.data() : { groups:{}, tags:{}, prompts:{}, tips:{content:"", timestamp:0} };
+                    const merged = { groups:{}, tags:{}, prompts:{}, tips:{content:"", timestamp:0} };
                     
                     ['groups','tags','prompts'].forEach(k => {
                         const allIds = new Set([...Object.keys(localData[k] || {}), ...Object.keys(cloud[k] || {})]);
@@ -398,8 +420,18 @@
                         });
                         Object.keys(merged[k]).forEach(id => { if(merged[k][id].isDeleted) delete merged[k][id]; });
                     });
+
+                    const cloudTips = cloud.tips || { content: "", timestamp: 0 };
+                    const localTips = localData.tips || { content: "", timestamp: 0 };
+                    merged.tips = localTips.timestamp > cloudTips.timestamp ? localTips : cloudTips;
+
                     t.set(docRef, merged); localData = merged;
                 });
+                
+                if (document.getElementById('view-tips').classList.contains('active')) {
+                    document.getElementById('tipsInput').value = localData.tips.content;
+                }
+                
                 saveLocal(); alert("Sync Complete!");
             } catch(e) { alert("Sync Error: " + e.message); }
             finally { btn.disabled = false; btn.innerText = "☁️ Sync"; }
@@ -408,7 +440,11 @@
         window.exportData = () => { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify(localData)], {type: 'application/json'})); a.download = "PromptBackup.json"; a.click(); };
         window.importJSON = (e) => {
             const f = e.target.files[0]; if(!f) return;
-            const r = new FileReader(); r.onload = ev => { localData = JSON.parse(ev.target.result); saveLocal(); renderView('menu'); alert("Restored!"); }; r.readAsText(f);
+            const r = new FileReader(); r.onload = ev => { 
+                localData = JSON.parse(ev.target.result); 
+                if(!localData.tips) localData.tips = { content: "", timestamp: 0 };
+                saveLocal(); renderView('menu'); alert("Restored!"); 
+            }; r.readAsText(f);
         };
 
         loadLocal(); history.replaceState({ view: 'menu' }, "", "#menu");
