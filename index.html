@@ -7,7 +7,7 @@
     <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-firestore-compat.js"></script>
     <style>
-        :root { --bg: #000000; --card: #1c1c1e; --text: #ffffff; --border: #38383a; --primary: #0a84ff; --danger: #ff453a; --success: #32d74b; --lora: #bf5af2; --trigger: #ffd60a; }
+        :root { --bg: #000000; --card: #1c1c1e; --text: #ffffff; --border: #38383a; --primary: #0a84ff; --danger: #ff453a; --success: #32d74b; --lora: #bf5af2; --trigger: #ffd60a; --ckpt: #ff9f0a; }
         body { font-family: -apple-system, system-ui, sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 0; padding-bottom: 90px; }
         * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
         .view { display: none; padding: 15px; max-width: 600px; margin: 0 auto; min-height: 100vh; }
@@ -24,10 +24,11 @@
         
         .list-item { display: flex; align-items: center; background: var(--card); border: 1px solid var(--border); border-radius: 8px; margin-bottom: 8px; padding: 12px; cursor: pointer; }
         .list-item-content { flex-grow: 1; font-weight: 500; font-size: 16px; display: flex; align-items: center; gap: 8px; }
-        .action-btns { display: flex; gap: 8px; margin-left: 10px; align-items: center; }
+        .action-btns { display: flex; gap: 6px; margin-left: 10px; align-items: center; }
         .icon-btn { background: none; border: none; color: #8e8e93; font-size: 16px; cursor: pointer; padding: 5px; }
         .lora-badge { background: var(--lora); color: white; font-size: 10px; padding: 2px 6px; border-radius: 4px; font-weight: bold; }
-        .rating-input { width: 50px !important; padding: 4px !important; margin: 0 !important; text-align: center; font-size: 12px !important; border-radius: 4px !important; }
+        .ckpt-badge { background: var(--ckpt); color: white; font-size: 10px; padding: 2px 6px; border-radius: 4px; font-weight: bold; }
+        .rating-input { width: 45px !important; padding: 4px !important; margin: 0 !important; text-align: center; font-size: 12px !important; border-radius: 4px !important; }
         
         .tag-row { display: flex; align-items: center; padding: 10px 12px; background: var(--card); border: 1px solid var(--border); border-radius: 8px; margin-bottom: 8px; }
         .tag-row label { flex-grow: 1; margin-left: 10px; font-size: 16px; word-break: break-word; }
@@ -39,11 +40,13 @@
         .bc-sep { color: #8e8e93; }
 
         #fab-preview { display: none; position: fixed; bottom: 25px; right: 25px; width: 60px; height: 60px; border-radius: 30px; background: var(--primary); color: white; font-size: 26px; border: none; box-shadow: 0 5px 15px rgba(0,0,0,0.5); z-index: 100; align-items: center; justify-content: center; cursor: pointer;}
-        #modal-overlay, #desc-modal { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.8); z-index: 200; align-items: center; justify-content: center; padding: 20px; }
-        .modal-content { background: var(--card); width: 100%; max-width: 450px; padding: 20px; border-radius: 12px; border: 1px solid var(--border); }
+        #modal-overlay, #desc-modal, #move-modal { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.8); z-index: 200; align-items: center; justify-content: center; padding: 20px; }
+        .modal-content { background: var(--card); width: 100%; max-width: 450px; padding: 20px; border-radius: 12px; border: 1px solid var(--border); max-height: 90vh; display: flex; flex-direction: column; }
         
         .syntax-guide { font-size: 12px; color: #8e8e93; background: #2c2c2e; padding: 10px; border-radius: 6px; margin-bottom: 10px; font-family: monospace; }
         .add-controls { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 15px; background: var(--card); padding: 12px; border-radius: 8px; border: 1px solid var(--border); }
+        
+        #move-tree-container { flex-grow: 1; overflow-y: auto; margin-bottom: 15px; border: 1px solid var(--border); border-radius: 8px; background: #000; padding: 10px; }
     </style>
 </head>
 <body>
@@ -68,6 +71,7 @@
                 <button class="btn btn-primary" style="flex:1; background:var(--lora);" onclick="addItem('lora')" id="btn-add-lora">+ LoRA</button>
                 <button class="btn btn-primary" style="flex:1;" onclick="addItem('tag')" id="btn-add-tag">+ Tag</button>
                 <button class="btn btn-primary" style="flex:1; background:var(--trigger); color:#000;" onclick="addItem('trigger')" id="btn-add-trigger">+ Trigger</button>
+                <button class="btn btn-primary" style="flex:1; background:var(--ckpt); color:#fff;" onclick="addItem('checkpoint')" id="btn-add-ckpt">+ Checkpoint</button>
             </div>
         </div>
     </div>
@@ -92,10 +96,11 @@
             <div class="syntax-guide">
                 <b>Syntax Guide:</b><br>
                 # Root Group<br>
-                ## Sub Group (up to ####)<br>
+                ## Sub Group<br>
                 ## [LORA] Name of LoRA<br>
                 ! trigger_word<br>
-                normal_tag
+                normal_tag<br>
+                <i>(Note: Checkpoints must be added manually)</i>
             </div>
             <textarea id="bulkInput" placeholder="# Group Name&#10;Tag 1" rows="6"></textarea>
             <button class="btn btn-primary btn-block" onclick="parseBulkText()">Import Now</button>
@@ -111,7 +116,7 @@
 
     <div id="modal-overlay">
         <div class="modal-content">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; border-bottom:1px solid 		    var(--border); padding-bottom:10px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; border-bottom:1px solid var(--border); padding-bottom:10px;">
                 <h2 style="margin:0; border:none; padding:0;">Preview Output</h2>
                 <label style="font-size: 14px; cursor: pointer; display:flex; align-items:center; gap:5px;">
                     <input type="checkbox" id="toggleUnderscore" onchange="generateOutputText()"> Pony Format (_)
@@ -130,10 +135,25 @@
 
     <div id="desc-modal">
         <div class="modal-content">
-            <h2>LoRA Description</h2>
-            <textarea id="loraDescInput" rows="6" placeholder="Write description here..."></textarea>
-            <button class="btn btn-primary btn-block" onclick="saveLoraDesc()">Save</button>
+            <h2>Information & Links</h2>
+            <label style="font-size:12px; color:#8e8e93;">Description:</label>
+            <textarea id="loraDescInput" rows="4" placeholder="Write description here..."></textarea>
+            <label style="font-size:12px; color:#8e8e93; display:block; margin-top:10px;">Links (URLs):</label>
+            <textarea id="loraLinkInput" rows="3" placeholder="Paste links here (one per line)..."></textarea>
+            
+            <div style="display:flex; gap:8px; margin-top:15px; margin-bottom:10px;">
+                <button class="btn btn-primary" style="flex:1;" onclick="openUrls()">Open Links</button>
+                <button class="btn btn-success" style="flex:1;" onclick="saveLoraDesc()">Save</button>
+            </div>
             <button class="btn btn-block" onclick="closeModal('desc-modal')">Close</button>
+        </div>
+    </div>
+
+    <div id="move-modal">
+        <div class="modal-content" style="height: 70vh;">
+            <h2>Move to...</h2>
+            <div id="move-tree-container"></div>
+            <button class="btn btn-block" onclick="closeModal('move-modal')">Cancel</button>
         </div>
     </div>
 
@@ -151,18 +171,35 @@
         firebase.initializeApp(firebaseConfig);
         const db = firebase.firestore();
         const DOC_ID = "main_prompt_database";
+        const CKPT_ROOT_ID = "ckpt_root_node";
 
         let localData = { groups: {}, tags: {}, prompts: {}, tips: { content: "", timestamp: 0 } };
         let activeGroupId = null; 
         let editingDescId = null; 
+        
+        let movingItemId = null;
+        let movingItemCollection = null;
+
+        function initData() {
+            if (!localData.tips) localData.tips = { content: "", timestamp: 0 };
+            if (!localData.groups[CKPT_ROOT_ID]) {
+                localData.groups[CKPT_ROOT_ID] = { 
+                    name: "Checkpoint Model", type: "checkpoint_root", parentId: null, 
+                    sortIndex: -999999, description: "", links: "", rating: "", 
+                    timestamp: getTs(), isDeleted: false 
+                };
+            }
+        }
 
         function loadLocal() {
             try { 
                 const raw = localStorage.getItem('promptAppPro'); 
                 if(raw) {
                     localData = JSON.parse(raw);
-                    if(!localData.tips) localData.tips = { content: "", timestamp: 0 };
-                } 
+                    initData();
+                } else {
+                    initData();
+                }
             } catch(e) { console.error("Load failed"); }
         }
         function saveLocal() {
@@ -173,7 +210,17 @@
         const genId = () => Date.now().toString(36) + Math.random().toString(36).substring(2);
         const getTs = () => Date.now();
 
-        // --- NAVIGATION ---
+        // --- NAVIGATION & DOMAIN CONTEXT ---
+        function checkCkptTree(id) {
+            let curr = id;
+            while(curr) {
+                if(curr === CKPT_ROOT_ID) return true;
+                if(!localData.groups[curr]) return false;
+                curr = localData.groups[curr].parentId;
+            }
+            return false;
+        }
+
         window.navigate = function(view, param = null) {
             if(view === 'workspace') activeGroupId = param;
             history.pushState({ view, param }, "", "#" + view);
@@ -184,6 +231,7 @@
         window.onpopstate = (e) => {
             if(document.getElementById('modal-overlay').style.display === 'flex') { closeModal('modal-overlay'); return; }
             if(document.getElementById('desc-modal').style.display === 'flex') { closeModal('desc-modal'); return; }
+            if(document.getElementById('move-modal').style.display === 'flex') { closeModal('move-modal'); return; }
             const state = e.state || { view: 'menu' };
             if(state.view === 'workspace') activeGroupId = state.param || null;
             renderView(state.view);
@@ -217,10 +265,13 @@
 
             const depth = getDepth(activeGroupId);
             const isInsideLora = activeGroupId && localData.groups[activeGroupId] && localData.groups[activeGroupId].type === 'lora';
+            const inCkptTree = checkCkptTree(activeGroupId);
 
             document.getElementById('btn-add-group').style.display = depth < 3 ? 'block' : 'none';
-            document.getElementById('btn-add-lora').style.display = depth < 3 ? 'block' : 'none';
+            document.getElementById('btn-add-lora').style.display = (!inCkptTree && depth < 3) ? 'block' : 'none';
+            document.getElementById('btn-add-tag').style.display = (!inCkptTree && activeGroupId !== null && !isInsideLora) ? 'block' : 'none';
             document.getElementById('btn-add-trigger').style.display = isInsideLora ? 'block' : 'none';
+            document.getElementById('btn-add-ckpt').style.display = inCkptTree ? 'block' : 'none';
 
             let groups = Object.entries(localData.groups).filter(([id, g]) => g.parentId === activeGroupId && !g.isDeleted)
                 .sort((a,b) => (a[1].sortIndex || 0) - (b[1].sortIndex || 0));
@@ -235,19 +286,33 @@
             let html = "";
             groups.forEach(([id, g]) => {
                 const isLora = g.type === 'lora';
+                const isCkptRoot = g.type === 'checkpoint_root';
+                const isCkpt = g.type === 'checkpoint';
+                
+                let badge = '';
+                if(isLora) badge = `<span class="lora-badge">LORA</span>`;
+                else if(isCkptRoot) badge = `🗄️`;
+                else if(isCkpt) badge = `<span class="ckpt-badge">CKPT</span>`;
+                else badge = `📁`;
+
+                const showRatingInfo = isLora || isCkpt;
+                const canNavigate = !isCkpt; 
+
                 html += `
-                <div class="list-item" onclick="navigate('workspace', '${id}')">
+                <div class="list-item" onclick="${canNavigate ? `Maps('workspace', '${id}')` : ''}" style="${canNavigate ? '' : 'cursor:default;'}">
                     <div class="list-item-content">
-                        ${isLora ? `<span class="lora-badge">LORA</span>` : `📁`} 
-                        ${g.name}
+                        ${badge} ${g.name}
                     </div>
-                    ${isLora ? `<input type="text" class="rating-input" value="${g.rating || ''}" placeholder="Rate" onclick="event.stopPropagation()" onchange="updGroup('${id}', 'rating', this.value)">` : ''}
+                    ${showRatingInfo ? `<input type="text" class="rating-input" value="${g.rating || ''}" placeholder="Rate" onclick="event.stopPropagation()" onchange="updGroup('${id}', 'rating', this.value)">` : ''}
                     <div class="action-btns" onclick="event.stopPropagation()">
-                        ${isLora ? `<button class="icon-btn" onclick="openDesc('${id}')">ℹ️</button>` : ''}
+                        ${showRatingInfo ? `<button class="icon-btn" onclick="openDesc('${id}')">ℹ️</button>` : ''}
+                        ${!isCkptRoot ? `
                         <button class="icon-btn" onclick="moveGrp('${id}', -1)">▲</button>
                         <button class="icon-btn" onclick="moveGrp('${id}', 1)">▼</button>
+                        <button class="icon-btn" onclick="openMoveModal('groups', '${id}')">🔀</button>
                         <button class="icon-btn" onclick="renameItem('groups', '${id}')">✏️</button>
                         <button class="icon-btn" style="color:var(--danger);" onclick="deleteItem('groups', '${id}')">✕</button>
+                        ` : ''}
                     </div>
                 </div>`;
             });
@@ -260,6 +325,7 @@
                     <label for="chk_${id}">${isTrig ? '<span class="trigger-icon">⚡</span>' : ''}${t.name}</label>
                     <input type="number" id="w_${id}" step="0.1" value="${t.weight}" onchange="updTag('${id}')">
                     <div class="action-btns">
+                        <button class="icon-btn" onclick="openMoveModal('tags', '${id}')">🔀</button>
                         <button class="icon-btn" onclick="renameItem('tags', '${id}')">✏️</button>
                         <button class="icon-btn" style="color:var(--danger);" onclick="deleteItem('tags', '${id}')">✕</button>
                     </div>
@@ -273,8 +339,8 @@
             const name = document.getElementById('newItemName').value.trim();
             if(!name) return alert("Please enter a name");
             const ts = getTs();
-            if(type === 'group' || type === 'lora') {
-                localData.groups[genId()] = { name, type, parentId: activeGroupId, sortIndex: ts, description: "", rating: "", timestamp: ts, isDeleted: false };
+            if(type === 'group' || type === 'lora' || type === 'checkpoint') {
+                localData.groups[genId()] = { name, type, parentId: activeGroupId, sortIndex: ts, description: "", links: "", rating: "", timestamp: ts, isDeleted: false };
             } else {
                 localData.tags[genId()] = { name, type, parentId: activeGroupId, weight: 1.0, checked: false, timestamp: ts, isDeleted: false };
             }
@@ -283,9 +349,14 @@
 
         window.updGroup = (id, key, val) => { localData.groups[id][key] = val; localData.groups[id].timestamp = getTs(); saveLocal(); };
         window.updTag = (id) => { localData.tags[id].checked = document.getElementById('chk_'+id).checked; localData.tags[id].weight = parseFloat(document.getElementById('w_'+id).value) || 1.0; localData.tags[id].timestamp = getTs(); saveLocal(); };
-        window.renameItem = (collection, id) => { const newName = prompt("Rename:", localData[collection][id].name); if(newName && newName.trim()) { localData[collection][id].name = newName.trim(); localData[collection][id].timestamp = getTs(); saveLocal(); renderWorkspace(); } };
+        window.renameItem = (collection, id) => { 
+            if(id === CKPT_ROOT_ID) return;
+            const newName = prompt("Rename:", localData[collection][id].name); 
+            if(newName && newName.trim()) { localData[collection][id].name = newName.trim(); localData[collection][id].timestamp = getTs(); saveLocal(); renderWorkspace(); } 
+        };
         
         window.deleteItem = (collection, id) => {
+            if(id === CKPT_ROOT_ID) return alert("Cannot delete fixed Root Directory.");
             if(collection === 'groups') {
                 const hasChildG = Object.values(localData.groups).some(g => g.parentId === id && !g.isDeleted);
                 const hasChildT = Object.values(localData.tags).some(t => t.parentId === id && !t.isDeleted);
@@ -297,10 +368,11 @@
         };
 
         window.moveGrp = (id, dir) => {
+            if(id === CKPT_ROOT_ID) return;
             const g = localData.groups[id];
             if(!g) return;
             let siblings = Object.keys(localData.groups)
-                .filter(k => localData.groups[k].parentId === g.parentId && !localData.groups[k].isDeleted)
+                .filter(k => localData.groups[k].parentId === g.parentId && !localData.groups[k].isDeleted && k !== CKPT_ROOT_ID)
                 .sort((a,b) => (localData.groups[a].sortIndex || 0) - (localData.groups[b].sortIndex || 0));
             
             let idx = siblings.indexOf(id);
@@ -316,8 +388,121 @@
             saveLocal(); renderWorkspace();
         };
 
-        window.openDesc = (id) => { editingDescId = id; document.getElementById('loraDescInput').value = localData.groups[id].description || ""; document.getElementById('desc-modal').style.display = 'flex'; };
-        window.saveLoraDesc = () => { if(editingDescId) { localData.groups[editingDescId].description = document.getElementById('loraDescInput').value; localData.groups[editingDescId].timestamp = getTs(); saveLocal(); } closeModal('desc-modal'); };
+        // --- MOVE MODAL LOGIC ---
+        function isDescendant(childId, parentId) {
+            if (!childId) return false;
+            let curr = childId;
+            while (curr) {
+                if (curr === parentId) return true;
+                if (!localData.groups[curr]) return false;
+                curr = localData.groups[curr].parentId;
+            }
+            return false;
+        }
+
+        function getMaxChildDepth(gid) {
+            let max = 0;
+            let children = Object.keys(localData.groups).filter(k => localData.groups[k].parentId === gid && !localData.groups[k].isDeleted);
+            children.forEach(c => {
+                max = Math.max(max, 1 + getMaxChildDepth(c));
+            });
+            return max;
+        }
+
+        window.openMoveModal = (collection, id) => {
+            if(id === CKPT_ROOT_ID) return;
+            movingItemId = id;
+            movingItemCollection = collection;
+            
+            const item = localData[collection][id];
+            // Identify origin domain
+            const originIsCkpt = collection === 'groups' ? checkCkptTree(id) : checkCkptTree(item.parentId);
+            
+            let html = '';
+            
+            if (!originIsCkpt) {
+                html += `<div class="list-item" style="background:#2c2c2e; margin-bottom:5px;" onclick="confirmMove(null)">🏠 [HOME ROOT]</div>`;
+            }
+
+            function drawTree(parentId, depth) {
+                let children = Object.keys(localData.groups).filter(k => localData.groups[k].parentId === parentId && !localData.groups[k].isDeleted);
+                children.sort((a,b) => localData.groups[a].name.localeCompare(localData.groups[b].name));
+                
+                children.forEach(childId => {
+                    const g = localData.groups[childId];
+                    if (g.type === 'lora' || g.type === 'checkpoint') return; // Cannot move inside a leaf node
+                    if (collection === 'groups' && (childId === id || isDescendant(childId, id))) return; // Prevent paradox
+                    
+                    const inCkpt = checkCkptTree(childId);
+                    if (originIsCkpt && !inCkpt && childId !== CKPT_ROOT_ID) return;
+                    if (!originIsCkpt && inCkpt) return;
+
+                    let indent = '&nbsp;'.repeat(depth * 5);
+                    let icon = g.type === 'checkpoint_root' ? '🗄️' : '📁';
+                    
+                    html += `<div class="list-item" style="padding-left:${15 + depth*15}px; background:#1c1c1e; margin-bottom:2px;" onclick="confirmMove('${childId}')">
+                        ${icon} ${g.name}
+                    </div>`;
+                    
+                    drawTree(childId, depth + 1);
+                });
+            }
+            
+            if(originIsCkpt) {
+                html += `<div class="list-item" style="background:#2c2c2e; margin-bottom:5px;" onclick="confirmMove('${CKPT_ROOT_ID}')">🗄️ Checkpoint Model [ROOT]</div>`;
+                drawTree(CKPT_ROOT_ID, 1);
+            } else {
+                drawTree(null, 0);
+            }
+            
+            document.getElementById('move-tree-container').innerHTML = html;
+            document.getElementById('move-modal').style.display = 'flex';
+        };
+
+        window.confirmMove = (destId) => {
+            if (!movingItemId || !movingItemCollection) return;
+            
+            if (movingItemCollection === 'groups') {
+                let destDepth = destId === null ? 0 : getDepth(destId);
+                let itemDepth = 1 + getMaxChildDepth(movingItemId);
+                if (destDepth + itemDepth > 4) {
+                    alert("Move aborted: Target destination is too deep. Maximum depth allowed is 4 levels.");
+                    return;
+                }
+            }
+
+            localData[movingItemCollection][movingItemId].parentId = destId;
+            localData[movingItemCollection][movingItemId].timestamp = getTs();
+            saveLocal();
+            closeModal('move-modal');
+            renderWorkspace();
+        };
+
+        // --- MODAL INFO (LORA & CKPT) ---
+        window.openDesc = (id) => { 
+            editingDescId = id; 
+            document.getElementById('loraDescInput').value = localData.groups[id].description || ""; 
+            document.getElementById('loraLinkInput').value = localData.groups[id].links || ""; 
+            document.getElementById('desc-modal').style.display = 'flex'; 
+        };
+        window.saveLoraDesc = () => { 
+            if(editingDescId) { 
+                localData.groups[editingDescId].description = document.getElementById('loraDescInput').value; 
+                localData.groups[editingDescId].links = document.getElementById('loraLinkInput').value; 
+                localData.groups[editingDescId].timestamp = getTs(); 
+                saveLocal(); 
+            } 
+            closeModal('desc-modal'); 
+        };
+        window.openUrls = () => {
+            const text = document.getElementById('loraLinkInput').value;
+            const urls = text.match(/https?:\/\/[^\s]+/g);
+            if(urls && urls.length > 0) {
+                urls.forEach(u => window.open(u, '_blank'));
+            } else {
+                alert("No valid URLs (http/https) found!");
+            }
+        };
 
         // --- TIPS LOGIC ---
         window.saveTips = () => {
@@ -327,14 +512,14 @@
             alert("Tips saved successfully!");
         };
 
-        // --- OUTPUT ---
+        // --- OUTPUT GENERATOR ---
         function getRootGroup(id) {
             let curr = id;
             while(curr && localData.groups[curr] && localData.groups[curr].parentId !== null) { curr = localData.groups[curr].parentId; }
             return curr || "root";
         }
 
-	window.openModal = () => {
+        window.openModal = () => {
             generateOutputText();
             document.getElementById('modal-overlay').style.display = 'flex';
         };
@@ -345,10 +530,12 @@
 
             Object.values(localData.tags).forEach(t => {
                 if(!t.isDeleted && t.checked) {
-                    // Chuyển đổi khoảng trắng thành _ nếu checkbox được bật
                     let finalName = useUnderscore ? t.name.replace(/ /g, '_') : t.name;
                     const str = t.weight === 1.0 ? finalName : `(${finalName}:${t.weight})`;
                     const rId = getRootGroup(t.parentId);
+                    
+                    if(rId === CKPT_ROOT_ID) return; 
+
                     if(!outputLines[rId]) outputLines[rId] = [];
                     outputLines[rId].push(str);
                 }
@@ -358,7 +545,7 @@
 
         window.closeModal = (id) => { document.getElementById(id).style.display = 'none'; };
         window.copyResult = () => { navigator.clipboard.writeText(document.getElementById('outputResult').value); alert("Copied!"); };
-        window.resetAllTags = () => { if(confirm("Clear all?")){ Object.values(localData.tags).forEach(t => { t.checked = false; t.weight = 1.0; t.timestamp = getTs(); }); saveLocal(); closeModal('modal-overlay'); renderWorkspace(); } };
+        window.resetAllTags = () => { if(confirm("Clear all?")){ Object.values(localData.tags).forEach(t => { t.checked = false; t.weight = 1.0; t.timestamp = getTs(); }); document.getElementById('toggleUnderscore').checked = false; saveLocal(); closeModal('modal-overlay'); renderWorkspace(); } };
 
         window.savePromptState = () => {
             const name = document.getElementById('saveName').value.trim();
@@ -381,6 +568,7 @@
                 if(localData.tags[tid].isDeleted) return;
                 localData.tags[tid].checked = !!s[tid]; localData.tags[tid].weight = s[tid] || 1.0; localData.tags[tid].timestamp = ts;
             });
+            document.getElementById('toggleUnderscore').checked = false;
             saveLocal(); navigate('workspace');
         };
 
@@ -401,7 +589,7 @@
                     let name = isLora ? rawName.substring(6).trim() : rawName;
                     let pId = level === 1 ? null : stack[level - 1];
                     let gid = genId();
-                    localData.groups[gid] = { name, type: isLora ? 'lora' : 'group', parentId: pId, sortIndex: importSortCounter++, description: "", rating: "", timestamp: importSortCounter, isDeleted: false };
+                    localData.groups[gid] = { name, type: isLora ? 'lora' : 'group', parentId: pId, sortIndex: importSortCounter++, description: "", links: "", rating: "", timestamp: importSortCounter, isDeleted: false };
                     stack[level] = gid; stack.length = level + 1; 
                 } else {
                     let pId = stack.length > 0 ? stack[stack.length - 1] : null;
@@ -439,6 +627,7 @@
                     merged.tips = localTips.timestamp > cloudTips.timestamp ? localTips : cloudTips;
 
                     t.set(docRef, merged); localData = merged;
+                    initData(); 
                 });
                 
                 if (document.getElementById('view-tips').classList.contains('active')) {
@@ -446,6 +635,7 @@
                 }
                 
                 saveLocal(); alert("Sync Complete!");
+                renderView(document.querySelector('.view.active').id.replace('view-', ''));
             } catch(e) { alert("Sync Error: " + e.message); }
             finally { btn.disabled = false; btn.innerText = "☁️ Sync"; }
         };
@@ -455,7 +645,7 @@
             const f = e.target.files[0]; if(!f) return;
             const r = new FileReader(); r.onload = ev => { 
                 localData = JSON.parse(ev.target.result); 
-                if(!localData.tips) localData.tips = { content: "", timestamp: 0 };
+                initData();
                 saveLocal(); renderView('menu'); alert("Restored!"); 
             }; r.readAsText(f);
         };
