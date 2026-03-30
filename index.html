@@ -210,24 +210,36 @@
         const genId = () => Date.now().toString(36) + Math.random().toString(36).substring(2);
         const getTs = () => Date.now();
 
-        // --- NAVIGATION & DOMAIN CONTEXT ---
+        // --- NAVIGATION & DOMAIN CONTEXT (WITH SAFETY COUNTER) ---
         function checkCkptTree(id) {
             let curr = id;
-            while(curr) {
+            let safety = 0;
+            while(curr && safety < 10) {
                 if(curr === CKPT_ROOT_ID) return true;
                 if(!localData.groups[curr]) return false;
                 curr = localData.groups[curr].parentId;
+                safety++;
             }
             return false;
         }
 
         window.navigate = function(view, param = null) {
             if(view === 'workspace') activeGroupId = param;
-            history.pushState({ view, param }, "", "#" + view);
+            
+            // Bọc try...catch để ngăn chặn lỗi trình duyệt khóa API History
+            try {
+                history.pushState({ view, param }, "", "#" + view);
+            } catch(e) {
+                console.warn("History API bị chặn (Có thể do chạy file Local). Trình duyệt vẫn tiếp tục hoạt động.");
+            }
+            
             renderView(view);
         };
 
-        window.goBack = () => history.back();
+        window.goBack = () => {
+            try { history.back(); } catch(e) { navigate('menu'); }
+        };
+
         window.onpopstate = (e) => {
             if(document.getElementById('modal-overlay').style.display === 'flex') { closeModal('modal-overlay'); return; }
             if(document.getElementById('desc-modal').style.display === 'flex') { closeModal('desc-modal'); return; }
@@ -249,7 +261,8 @@
 
         function getDepth(id) {
             let depth = 0; let curr = id;
-            while(curr && localData.groups[curr]) { depth++; curr = localData.groups[curr].parentId; }
+            let safety = 0;
+            while(curr && localData.groups[curr] && safety < 10) { depth++; curr = localData.groups[curr].parentId; safety++; }
             return depth;
         }
 
@@ -258,7 +271,12 @@
             let bcHtml = `<span class="bc-item" onclick="navigate('menu')">Home</span>`;
             if (activeGroupId) {
                 let path = []; let curr = activeGroupId;
-                while(curr && localData.groups[curr]) { path.unshift({id: curr, name: localData.groups[curr].name}); curr = localData.groups[curr].parentId; }
+                let safety = 0;
+                while(curr && localData.groups[curr] && safety < 10) { 
+                    path.unshift({id: curr, name: localData.groups[curr].name}); 
+                    curr = localData.groups[curr].parentId; 
+                    safety++;
+                }
                 path.forEach(p => { bcHtml += ` <span class="bc-sep">/</span> <span class="bc-item" onclick="navigate('workspace', '${p.id}')">${p.name}</span>`; });
             }
             document.getElementById('ui-breadcrumbs').innerHTML = bcHtml;
@@ -297,22 +315,33 @@
 
                 const showRatingInfo = isLora || isCkpt;
                 const canNavigate = !isCkpt; 
+                
+                // Tránh lỗi cú pháp trong thuộc tính HTML
+                const clickAttr = canNavigate ? `onclick="navigate('workspace', '${id}')"` : '';
+                const styleAttr = canNavigate ? '' : 'cursor:default;';
 
-                html += `
-                <div class="list-item" onclick="${canNavigate ? `Maps('workspace', '${id}')` : ''}" style="${canNavigate ? '' : 'cursor:default;'}">
-                    <div class="list-item-content">
-                        ${badge} ${g.name}
-                    </div>
-                    ${showRatingInfo ? `<input type="text" class="rating-input" value="${g.rating || ''}" placeholder="Rate" onclick="event.stopPropagation()" onchange="updGroup('${id}', 'rating', this.value)">` : ''}
-                    <div class="action-btns" onclick="event.stopPropagation()">
-                        ${showRatingInfo ? `<button class="icon-btn" onclick="openDesc('${id}')">ℹ️</button>` : ''}
-                        ${!isCkptRoot ? `
+                let actionBtnsHtml = '';
+                if (showRatingInfo) {
+                    actionBtnsHtml += `<button class="icon-btn" onclick="openDesc('${id}')">ℹ️</button>`;
+                }
+                if (!isCkptRoot) {
+                    actionBtnsHtml += `
                         <button class="icon-btn" onclick="moveGrp('${id}', -1)">▲</button>
                         <button class="icon-btn" onclick="moveGrp('${id}', 1)">▼</button>
                         <button class="icon-btn" onclick="openMoveModal('groups', '${id}')">🔀</button>
                         <button class="icon-btn" onclick="renameItem('groups', '${id}')">✏️</button>
                         <button class="icon-btn" style="color:var(--danger);" onclick="deleteItem('groups', '${id}')">✕</button>
-                        ` : ''}
+                    `;
+                }
+
+                html += `
+                <div class="list-item" ${clickAttr} style="${styleAttr}">
+                    <div class="list-item-content">
+                        ${badge} ${g.name}
+                    </div>
+                    ${showRatingInfo ? `<input type="text" class="rating-input" value="${g.rating || ''}" placeholder="Rate" onclick="event.stopPropagation()" onchange="updGroup('${id}', 'rating', this.value)">` : ''}
+                    <div class="action-btns" onclick="event.stopPropagation()">
+                        ${actionBtnsHtml}
                     </div>
                 </div>`;
             });
@@ -392,10 +421,12 @@
         function isDescendant(childId, parentId) {
             if (!childId) return false;
             let curr = childId;
-            while (curr) {
+            let safety = 0;
+            while (curr && safety < 10) {
                 if (curr === parentId) return true;
                 if (!localData.groups[curr]) return false;
                 curr = localData.groups[curr].parentId;
+                safety++;
             }
             return false;
         }
@@ -415,7 +446,6 @@
             movingItemCollection = collection;
             
             const item = localData[collection][id];
-            // Identify origin domain
             const originIsCkpt = collection === 'groups' ? checkCkptTree(id) : checkCkptTree(item.parentId);
             
             let html = '';
@@ -430,14 +460,13 @@
                 
                 children.forEach(childId => {
                     const g = localData.groups[childId];
-                    if (g.type === 'lora' || g.type === 'checkpoint') return; // Cannot move inside a leaf node
-                    if (collection === 'groups' && (childId === id || isDescendant(childId, id))) return; // Prevent paradox
+                    if (g.type === 'lora' || g.type === 'checkpoint') return; 
+                    if (collection === 'groups' && (childId === id || isDescendant(childId, id))) return; 
                     
                     const inCkpt = checkCkptTree(childId);
                     if (originIsCkpt && !inCkpt && childId !== CKPT_ROOT_ID) return;
                     if (!originIsCkpt && inCkpt) return;
 
-                    let indent = '&nbsp;'.repeat(depth * 5);
                     let icon = g.type === 'checkpoint_root' ? '🗄️' : '📁';
                     
                     html += `<div class="list-item" style="padding-left:${15 + depth*15}px; background:#1c1c1e; margin-bottom:2px;" onclick="confirmMove('${childId}')">
@@ -515,7 +544,11 @@
         // --- OUTPUT GENERATOR ---
         function getRootGroup(id) {
             let curr = id;
-            while(curr && localData.groups[curr] && localData.groups[curr].parentId !== null) { curr = localData.groups[curr].parentId; }
+            let safety = 0;
+            while(curr && localData.groups[curr] && localData.groups[curr].parentId !== null && safety < 10) { 
+                curr = localData.groups[curr].parentId; 
+                safety++;
+            }
             return curr || "root";
         }
 
