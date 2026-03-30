@@ -111,8 +111,13 @@
 
     <div id="modal-overlay">
         <div class="modal-content">
-            <h2>Preview Output</h2>
-            <textarea id="outputResult" rows="6" readonly style="background:#2c2c2e; border:none;"></textarea>
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; border-bottom:1px solid 		    var(--border); padding-bottom:10px;">
+                <h2 style="margin:0; border:none; padding:0;">Preview Output</h2>
+                <label style="font-size: 14px; cursor: pointer; display:flex; align-items:center; gap:5px;">
+                    <input type="checkbox" id="toggleUnderscore" onchange="generateOutputText()"> Pony Format (_)
+                </label>
+            </div>
+            <textarea id="outputResult" rows="6" readonly style="background:#2c2c2e; border:none; margin-top:10px;"></textarea>
             <input type="text" id="saveName" placeholder="Prompt name to save...">
             <div style="display:flex; gap:8px; margin-bottom:10px;">
                 <button class="btn btn-primary" style="flex:1" onclick="copyResult()">Copy</button>
@@ -329,18 +334,26 @@
             return curr || "root";
         }
 
-        window.openModal = () => {
+	window.openModal = () => {
+            generateOutputText();
+            document.getElementById('modal-overlay').style.display = 'flex';
+        };
+
+        window.generateOutputText = () => {
             let outputLines = {}; 
+            const useUnderscore = document.getElementById('toggleUnderscore').checked;
+
             Object.values(localData.tags).forEach(t => {
                 if(!t.isDeleted && t.checked) {
-                    const str = t.weight === 1.0 ? t.name : `(${t.name}:${t.weight})`;
+                    // Chuyển đổi khoảng trắng thành _ nếu checkbox được bật
+                    let finalName = useUnderscore ? t.name.replace(/ /g, '_') : t.name;
+                    const str = t.weight === 1.0 ? finalName : `(${finalName}:${t.weight})`;
                     const rId = getRootGroup(t.parentId);
                     if(!outputLines[rId]) outputLines[rId] = [];
                     outputLines[rId].push(str);
                 }
             });
             document.getElementById('outputResult').value = Object.values(outputLines).map(arr => arr.join(", ") + ",").join("\n");
-            document.getElementById('modal-overlay').style.display = 'flex';
         };
 
         window.closeModal = (id) => { document.getElementById(id).style.display = 'none'; };
