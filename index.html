@@ -57,7 +57,7 @@
         <button class="btn btn-block" onclick="navigate('storage')">💾 Saved Storage</button>
         <button class="btn btn-block" style="color: #ffd60a; border: 1px solid #ffd60a; background: transparent;" onclick="navigate('tips')">💡 Tips & Notes</button>
         <button id="btnSync" class="btn btn-success btn-block" onclick="syncApp()">☁️ Sync</button>
-        <button class="btn btn-block" onclick="navigate('data')">⚙️ Bulk Import & Tools</button>
+        <button class="btn btn-block" onclick="navigate('data')">⚙️ Options</button>
     </div>
 
     <div id="view-workspace" class="view">
@@ -90,7 +90,7 @@
     </div>
 
     <div id="view-data" class="view">
-        <div class="breadcrumbs"><span class="bc-item" onclick="navigate('menu')">❮ Menu</span> <span class="bc-sep">/</span> <span>Tools</span></div>
+        <div class="breadcrumbs"><span class="bc-item" onclick="navigate('menu')">❮ Menu</span> <span class="bc-sep">/</span> <span>Options</span></div>
         <div class="card">
             <h3>Bulk Import</h3>
             <div class="syntax-guide">
@@ -106,9 +106,15 @@
             <button class="btn btn-primary btn-block" onclick="parseBulkText()">Import Now</button>
         </div>
         <div class="card">
+            <h3>Data Management</h3>
             <button class="btn btn-block" onclick="exportData()">Export JSON Backup</button>
             <label style="font-size:12px; margin-bottom:5px; display:block;">Restore from JSON:</label>
             <input type="file" accept=".json" onchange="importJSON(event)" style="width:100%; color:white;">
+        </div>
+        <div class="card">
+            <h3>Danger Zone</h3>
+            <button class="btn btn-danger btn-block" onclick="clearAllData()">🗑️ Clear All Local Data</button>
+            <p style="font-size:12px; color:#8e8e93; margin-top:10px;">⚠️ This will permanently delete all local data including groups, tags, prompts, and tips. This action cannot be undone.</p>
         </div>
     </div>
 
@@ -158,6 +164,53 @@
     </div>
 
     <script>
+        // =================================================================
+        // PROMPT MANAGER - KIẾN TRÚC HỆ THỐNG (ĐỪNG THAY ĐỔI CÁC QUY TẮC NÀY)
+        // =================================================================
+        // 
+        // 🏗️ CẤU TRÚC DATA 4 CẤP PHÂN CẤP:
+        // - Level 0: Root (parentId = null)  
+        // - Level 1-3: Groups/Sub-groups/LoRAs/Checkpoints (max depth = 4)
+        // - Tags/Triggers: Leaf nodes bên trong containers
+        //
+        // 📦 ENTITY TYPES:
+        // - group: Folder thường, có thể navigate vào
+        // - lora: Folder đặc biệt, chứa triggers/tags, có Info Modal
+        // - checkpoint: Leaf node trong Checkpoint Root, có Info Modal  
+        // - checkpoint_root: Root cố định (ID: ckpt_root_node), không xóa được
+        // - tag: Prompt element với weight và checked
+        // - trigger: Special tag, luôn sort đầu, icon ⚡
+        //
+        // 🔄 HYBRID SORTING:
+        // - Containers: sortIndex thủ công (moveGrp() re-index siblings)
+        // - Elements: Auto A-Z trong renderWorkspace()
+        //
+        // 🛡️ SAFETY GUARDRAILS:
+        // - Soft-deletion: isDeleted flag (không xóa thật để sync)
+        // - Restrict Delete: Không xóa parent có children
+        // - Domain Isolation: Prompt items ↔ Checkpoint items tách biệt
+        // - Max Depth = 4 levels (getDepth() + safety counter)
+        //
+        // 🔀 MOVE LOGIC:
+        // - openMoveModal(): Hiển thị cây, filter theo domain, chống paradox
+        // - confirmMove(): Kiểm tra depth limit, gán parentId mới
+        //
+        // 📤 OUTPUT PARSER:
+        // - generateOutputText(): Trace tag về Level 1 Root, group theo root
+        // - Pony Format: toggleUnderscore thay thế spaces = underscores
+        //
+        // ☁️ FIREBASE SYNC:
+        // - Transactional read-modify-write
+        // - Last-Write-Wins dựa trên timestamp
+        // - Tự động merge và cleanup isDeleted items
+        //
+        // 🗑️ DATA MANAGEMENT (Options page):
+        // - Bulk Import: parseBulkText() syntax # ## [LORA] ! 
+        // - Export/Restore: JSON backup toàn bộ localData
+        // - Clear All Data: clearAllData() 2 lớp xác nhận, xóa localStorage
+        //
+        // =================================================================
+
         const firebaseConfig = {
             apiKey: "AIzaSyBIgCJ0luQ_-vooCcAB7OCYO-Hzi5I4rY0",
             authDomain: "my-prompt-app-ce6b2.firebaseapp.com",
@@ -671,6 +724,24 @@
                 renderView(document.querySelector('.view.active').id.replace('view-', ''));
             } catch(e) { alert("Sync Error: " + e.message); }
             finally { btn.disabled = false; btn.innerText = "☁️ Sync"; }
+        };
+
+        window.clearAllData = () => {
+            if(!confirm("⚠️ WARNING: This will permanently delete ALL local data including:\n\n• Groups and LoRAs\n• Tags and Triggers\n• Saved Prompts\n• Tips & Notes\n\nThis action CANNOT be undone. Are you absolutely sure?")) return;
+            
+            if(!confirm("Final confirmation: All data will be lost forever. Continue?")) return;
+            
+            try {
+                localStorage.removeItem('promptAppPro');
+                localStorage.removeItem('promptAppPro_backup');
+                localData = { groups: {}, tags: {}, prompts: {}, tips: { content: "", timestamp: 0 } };
+                initData();
+                saveLocal();
+                alert("✅ All local data has been cleared successfully!");
+                navigate('menu');
+            } catch(e) {
+                alert("❌ Error clearing data: " + e.message);
+            }
         };
 
         window.exportData = () => { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify(localData)], {type: 'application/json'})); a.download = "PromptBackup.json"; a.click(); };
