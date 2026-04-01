@@ -292,7 +292,8 @@
 
             document.getElementById('btn-add-group').style.display = depth < 3 ? 'block' : 'none';
             document.getElementById('btn-add-lora').style.display = (!inCkptTree && depth < 3) ? 'block' : 'none';
-            document.getElementById('btn-add-tag').style.display = (!inCkptTree && activeGroupId !== null && !isInsideLora) ? 'block' : 'none';
+            // Removed !isInsideLora constraint here:
+            document.getElementById('btn-add-tag').style.display = (!inCkptTree && activeGroupId !== null) ? 'block' : 'none';
             document.getElementById('btn-add-trigger').style.display = isInsideLora ? 'block' : 'none';
             document.getElementById('btn-add-ckpt').style.display = inCkptTree ? 'block' : 'none';
 
@@ -508,7 +509,7 @@
             renderWorkspace();
         };
 
-        // --- DESCRIPTION PAGE LOGIC (Replaces Modal) ---
+        // --- DESCRIPTION PAGE LOGIC ---
         window.openDescPage = (id) => { 
             editingDescId = id; 
             document.getElementById('descInputArea').value = localData.groups[id].description || ""; 
@@ -544,7 +545,7 @@
                 if(btn) { btn.disabled = true; btn.innerText = "⏳ Syncing & Wiping..."; }
                 
                 try {
-                    await syncApp(true); // Call sync function silently
+                    await syncApp(true); 
                     
                     localStorage.removeItem('promptAppPro');
                     localData = { groups: {}, tags: {}, prompts: {}, tips: { content: "", timestamp: 0 } };
