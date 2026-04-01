@@ -40,7 +40,7 @@
         .bc-sep { color: #8e8e93; }
 
         #fab-preview { display: none; position: fixed; bottom: 25px; right: 25px; width: 60px; height: 60px; border-radius: 30px; background: var(--primary); color: white; font-size: 26px; border: none; box-shadow: 0 5px 15px rgba(0,0,0,0.5); z-index: 100; align-items: center; justify-content: center; cursor: pointer;}
-        #modal-overlay, #desc-modal, #move-modal { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.8); z-index: 200; align-items: center; justify-content: center; padding: 20px; }
+        #modal-overlay, #move-modal { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.8); z-index: 200; align-items: center; justify-content: center; padding: 20px; }
         .modal-content { background: var(--card); width: 100%; max-width: 450px; padding: 20px; border-radius: 12px; border: 1px solid var(--border); max-height: 90vh; display: flex; flex-direction: column; }
         
         .syntax-guide { font-size: 12px; color: #8e8e93; background: #2c2c2e; padding: 10px; border-radius: 6px; margin-bottom: 10px; font-family: monospace; }
@@ -56,8 +56,8 @@
         <button class="btn btn-primary btn-block" onclick="navigate('workspace')">✏️ Create Prompt</button>
         <button class="btn btn-block" onclick="navigate('storage')">💾 Saved Storage</button>
         <button class="btn btn-block" style="color: #ffd60a; border: 1px solid #ffd60a; background: transparent;" onclick="navigate('tips')">💡 Tips & Notes</button>
-        <button id="btnSync" class="btn btn-success btn-block" onclick="syncApp()">☁️ Sync</button>
-        <button class="btn btn-block" onclick="navigate('data')">⚙️ Options</button>
+        <button id="btnSync" class="btn btn-success btn-block" onclick="syncApp(false)">☁️ Sync</button>
+        <button class="btn btn-block" onclick="navigate('options')">⚙️ Options</button>
     </div>
 
     <div id="view-workspace" class="view">
@@ -76,6 +76,22 @@
         </div>
     </div>
 
+    <div id="view-description" class="view">
+        <div class="breadcrumbs"><span class="bc-item" onclick="goBack()">❮ Back</span> <span class="bc-sep">/</span> <span id="desc-title">Description</span></div>
+        <div class="card">
+            <label style="font-size:12px; color:#8e8e93; display:block; margin-bottom:5px;">Description:</label>
+            <textarea id="descInputArea" rows="12" placeholder="Write description here..."></textarea>
+            
+            <label style="font-size:12px; color:#8e8e93; display:block; margin-top:10px; margin-bottom:5px;">Links (URLs):</label>
+            <textarea id="linkInputArea" rows="3" placeholder="Paste links here (one per line)..."></textarea>
+            
+            <div style="display:flex; gap:8px; margin-top:15px;">
+                <button class="btn btn-primary" style="flex:1;" onclick="openUrls()">Open Links</button>
+                <button class="btn btn-success" style="flex:2;" onclick="saveDescPage()">Save</button>
+            </div>
+        </div>
+    </div>
+
     <div id="view-tips" class="view">
         <div class="breadcrumbs"><span class="bc-item" onclick="navigate('menu')">❮ Menu</span> <span class="bc-sep">/</span> <span>Tips & Notes</span></div>
         <div class="card">
@@ -89,8 +105,15 @@
         <div id="ui-storage"></div>
     </div>
 
-    <div id="view-data" class="view">
+    <div id="view-options" class="view">
         <div class="breadcrumbs"><span class="bc-item" onclick="navigate('menu')">❮ Menu</span> <span class="bc-sep">/</span> <span>Options</span></div>
+        
+        <div class="card">
+            <h3>Local Storage Management</h3>
+            <p style="font-size: 14px; color: #8e8e93; margin-top:0;">Clear local data when not in use. The system will automatically sync your data to Firebase before clearing.</p>
+            <button id="btnClear" class="btn btn-danger btn-block" onclick="clearLocalData()">🗑️ Sync & Clear Local Data</button>
+        </div>
+
         <div class="card">
             <h3>Bulk Import</h3>
             <div class="syntax-guide">
@@ -105,16 +128,11 @@
             <textarea id="bulkInput" placeholder="# Group Name&#10;Tag 1" rows="6"></textarea>
             <button class="btn btn-primary btn-block" onclick="parseBulkText()">Import Now</button>
         </div>
+        
         <div class="card">
-            <h3>Data Management</h3>
             <button class="btn btn-block" onclick="exportData()">Export JSON Backup</button>
             <label style="font-size:12px; margin-bottom:5px; display:block;">Restore from JSON:</label>
             <input type="file" accept=".json" onchange="importJSON(event)" style="width:100%; color:white;">
-        </div>
-        <div class="card">
-            <h3>Danger Zone</h3>
-            <button class="btn btn-danger btn-block" onclick="clearAllData()">🗑️ Clear All Local Data</button>
-            <p style="font-size:12px; color:#8e8e93; margin-top:10px;">⚠️ This will permanently delete all local data including groups, tags, prompts, and tips. This action cannot be undone.</p>
         </div>
     </div>
 
@@ -139,22 +157,6 @@
         </div>
     </div>
 
-    <div id="desc-modal">
-        <div class="modal-content">
-            <h2>Information & Links</h2>
-            <label style="font-size:12px; color:#8e8e93;">Description:</label>
-            <textarea id="loraDescInput" rows="4" placeholder="Write description here..."></textarea>
-            <label style="font-size:12px; color:#8e8e93; display:block; margin-top:10px;">Links (URLs):</label>
-            <textarea id="loraLinkInput" rows="3" placeholder="Paste links here (one per line)..."></textarea>
-            
-            <div style="display:flex; gap:8px; margin-top:15px; margin-bottom:10px;">
-                <button class="btn btn-primary" style="flex:1;" onclick="openUrls()">Open Links</button>
-                <button class="btn btn-success" style="flex:1;" onclick="saveLoraDesc()">Save</button>
-            </div>
-            <button class="btn btn-block" onclick="closeModal('desc-modal')">Close</button>
-        </div>
-    </div>
-
     <div id="move-modal">
         <div class="modal-content" style="height: 70vh;">
             <h2>Move to...</h2>
@@ -164,53 +166,6 @@
     </div>
 
     <script>
-        // =================================================================
-        // PROMPT MANAGER - KIẾN TRÚC HỆ THỐNG (ĐỪNG THAY ĐỔI CÁC QUY TẮC NÀY)
-        // =================================================================
-        // 
-        // 🏗️ CẤU TRÚC DATA 4 CẤP PHÂN CẤP:
-        // - Level 0: Root (parentId = null)  
-        // - Level 1-3: Groups/Sub-groups/LoRAs/Checkpoints (max depth = 4)
-        // - Tags/Triggers: Leaf nodes bên trong containers
-        //
-        // 📦 ENTITY TYPES:
-        // - group: Folder thường, có thể navigate vào
-        // - lora: Folder đặc biệt, chứa triggers/tags, có Info Modal
-        // - checkpoint: Leaf node trong Checkpoint Root, có Info Modal  
-        // - checkpoint_root: Root cố định (ID: ckpt_root_node), không xóa được
-        // - tag: Prompt element với weight và checked
-        // - trigger: Special tag, luôn sort đầu, icon ⚡
-        //
-        // 🔄 HYBRID SORTING:
-        // - Containers: sortIndex thủ công (moveGrp() re-index siblings)
-        // - Elements: Auto A-Z trong renderWorkspace()
-        //
-        // 🛡️ SAFETY GUARDRAILS:
-        // - Soft-deletion: isDeleted flag (không xóa thật để sync)
-        // - Restrict Delete: Không xóa parent có children
-        // - Domain Isolation: Prompt items ↔ Checkpoint items tách biệt
-        // - Max Depth = 4 levels (getDepth() + safety counter)
-        //
-        // 🔀 MOVE LOGIC:
-        // - openMoveModal(): Hiển thị cây, filter theo domain, chống paradox
-        // - confirmMove(): Kiểm tra depth limit, gán parentId mới
-        //
-        // 📤 OUTPUT PARSER:
-        // - generateOutputText(): Trace tag về Level 1 Root, group theo root
-        // - Pony Format: toggleUnderscore thay thế spaces = underscores
-        //
-        // ☁️ FIREBASE SYNC:
-        // - Transactional read-modify-write
-        // - Last-Write-Wins dựa trên timestamp
-        // - Tự động merge và cleanup isDeleted items
-        //
-        // 🗑️ DATA MANAGEMENT (Options page):
-        // - Bulk Import: parseBulkText() syntax # ## [LORA] ! 
-        // - Export/Restore: JSON backup toàn bộ localData
-        // - Clear All Data: clearAllData() 2 lớp xác nhận, xóa localStorage
-        //
-        // =================================================================
-
         const firebaseConfig = {
             apiKey: "AIzaSyBIgCJ0luQ_-vooCcAB7OCYO-Hzi5I4rY0",
             authDomain: "my-prompt-app-ce6b2.firebaseapp.com",
@@ -263,7 +218,7 @@
         const genId = () => Date.now().toString(36) + Math.random().toString(36).substring(2);
         const getTs = () => Date.now();
 
-        // --- NAVIGATION & DOMAIN CONTEXT (WITH SAFETY COUNTER) ---
+        // --- NAVIGATION & DOMAIN CONTEXT ---
         function checkCkptTree(id) {
             let curr = id;
             let safety = 0;
@@ -278,14 +233,11 @@
 
         window.navigate = function(view, param = null) {
             if(view === 'workspace') activeGroupId = param;
-            
-            // Bọc try...catch để ngăn chặn lỗi trình duyệt khóa API History
             try {
                 history.pushState({ view, param }, "", "#" + view);
             } catch(e) {
-                console.warn("History API bị chặn (Có thể do chạy file Local). Trình duyệt vẫn tiếp tục hoạt động.");
+                console.warn("History API block caught.");
             }
-            
             renderView(view);
         };
 
@@ -295,8 +247,8 @@
 
         window.onpopstate = (e) => {
             if(document.getElementById('modal-overlay').style.display === 'flex') { closeModal('modal-overlay'); return; }
-            if(document.getElementById('desc-modal').style.display === 'flex') { closeModal('desc-modal'); return; }
             if(document.getElementById('move-modal').style.display === 'flex') { closeModal('move-modal'); return; }
+            
             const state = e.state || { view: 'menu' };
             if(state.view === 'workspace') activeGroupId = state.param || null;
             renderView(state.view);
@@ -369,13 +321,12 @@
                 const showRatingInfo = isLora || isCkpt;
                 const canNavigate = !isCkpt; 
                 
-                // Tránh lỗi cú pháp trong thuộc tính HTML
                 const clickAttr = canNavigate ? `onclick="navigate('workspace', '${id}')"` : '';
                 const styleAttr = canNavigate ? '' : 'cursor:default;';
 
                 let actionBtnsHtml = '';
                 if (showRatingInfo) {
-                    actionBtnsHtml += `<button class="icon-btn" onclick="openDesc('${id}')">ℹ️</button>`;
+                    actionBtnsHtml += `<button class="icon-btn" onclick="openDescPage('${id}')">ℹ️</button>`;
                 }
                 if (!isCkptRoot) {
                     actionBtnsHtml += `
@@ -502,10 +453,7 @@
             const originIsCkpt = collection === 'groups' ? checkCkptTree(id) : checkCkptTree(item.parentId);
             
             let html = '';
-            
-            if (!originIsCkpt) {
-                html += `<div class="list-item" style="background:#2c2c2e; margin-bottom:5px;" onclick="confirmMove(null)">🏠 [HOME ROOT]</div>`;
-            }
+            if (!originIsCkpt) html += `<div class="list-item" style="background:#2c2c2e; margin-bottom:5px;" onclick="confirmMove(null)">🏠 [HOME ROOT]</div>`;
 
             function drawTree(parentId, depth) {
                 let children = Object.keys(localData.groups).filter(k => localData.groups[k].parentId === parentId && !localData.groups[k].isDeleted);
@@ -560,29 +508,56 @@
             renderWorkspace();
         };
 
-        // --- MODAL INFO (LORA & CKPT) ---
-        window.openDesc = (id) => { 
+        // --- DESCRIPTION PAGE LOGIC (Replaces Modal) ---
+        window.openDescPage = (id) => { 
             editingDescId = id; 
-            document.getElementById('loraDescInput').value = localData.groups[id].description || ""; 
-            document.getElementById('loraLinkInput').value = localData.groups[id].links || ""; 
-            document.getElementById('desc-modal').style.display = 'flex'; 
+            document.getElementById('descInputArea').value = localData.groups[id].description || ""; 
+            document.getElementById('linkInputArea').value = localData.groups[id].links || ""; 
+            document.getElementById('desc-title').innerText = localData.groups[id].name;
+            navigate('description');
         };
-        window.saveLoraDesc = () => { 
+
+        window.saveDescPage = () => { 
             if(editingDescId) { 
-                localData.groups[editingDescId].description = document.getElementById('loraDescInput').value; 
-                localData.groups[editingDescId].links = document.getElementById('loraLinkInput').value; 
+                localData.groups[editingDescId].description = document.getElementById('descInputArea').value; 
+                localData.groups[editingDescId].links = document.getElementById('linkInputArea').value; 
                 localData.groups[editingDescId].timestamp = getTs(); 
                 saveLocal(); 
+                alert("Description saved successfully!");
             } 
-            closeModal('desc-modal'); 
         };
+
         window.openUrls = () => {
-            const text = document.getElementById('loraLinkInput').value;
+            const text = document.getElementById('linkInputArea').value;
             const urls = text.match(/https?:\/\/[^\s]+/g);
             if(urls && urls.length > 0) {
                 urls.forEach(u => window.open(u, '_blank'));
             } else {
                 alert("No valid URLs (http/https) found!");
+            }
+        };
+
+        // --- LOCAL STORAGE MGT ---
+        window.clearLocalData = async () => {
+            if(confirm("WARNING: This will SYNC your current local state to Firebase first, then WIPE local data from this device. \n\nNote: If you deleted something locally by mistake, doing this will OVERWRITE the cloud copy and you cannot undo it. Proceed?")) {
+                const btn = document.getElementById('btnClear');
+                if(btn) { btn.disabled = true; btn.innerText = "⏳ Syncing & Wiping..."; }
+                
+                try {
+                    await syncApp(true); // Call sync function silently
+                    
+                    localStorage.removeItem('promptAppPro');
+                    localData = { groups: {}, tags: {}, prompts: {}, tips: { content: "", timestamp: 0 } };
+                    initData();
+                    saveLocal();
+                    
+                    alert("Synced to cloud and local storage cleared successfully!");
+                    navigate('menu');
+                } catch(e) {
+                    alert("Failed to clear data because sync encountered an error.");
+                } finally {
+                    if(btn) { btn.disabled = false; btn.innerText = "🗑️ Sync & Clear Local Data"; }
+                }
             }
         };
 
@@ -688,9 +663,9 @@
         };
 
         // --- FIREBASE SYNC ---
-        window.syncApp = async function() {
+        window.syncApp = async function(isSilent = false) {
             const btn = document.getElementById('btnSync');
-            btn.disabled = true; btn.innerText = "⏳ Syncing...";
+            if(btn && !isSilent) { btn.disabled = true; btn.innerText = "⏳ Syncing..."; }
             try {
                 const docRef = db.collection("AppData").doc(DOC_ID);
                 await db.runTransaction(async (t) => {
@@ -720,28 +695,14 @@
                     document.getElementById('tipsInput').value = localData.tips.content;
                 }
                 
-                saveLocal(); alert("Sync Complete!");
-                renderView(document.querySelector('.view.active').id.replace('view-', ''));
-            } catch(e) { alert("Sync Error: " + e.message); }
-            finally { btn.disabled = false; btn.innerText = "☁️ Sync"; }
-        };
-
-        window.clearAllData = () => {
-            if(!confirm("⚠️ WARNING: This will permanently delete ALL local data including:\n\n• Groups and LoRAs\n• Tags and Triggers\n• Saved Prompts\n• Tips & Notes\n\nThis action CANNOT be undone. Are you absolutely sure?")) return;
-            
-            if(!confirm("Final confirmation: All data will be lost forever. Continue?")) return;
-            
-            try {
-                localStorage.removeItem('promptAppPro');
-                localStorage.removeItem('promptAppPro_backup');
-                localData = { groups: {}, tags: {}, prompts: {}, tips: { content: "", timestamp: 0 } };
-                initData();
-                saveLocal();
-                alert("✅ All local data has been cleared successfully!");
-                navigate('menu');
-            } catch(e) {
-                alert("❌ Error clearing data: " + e.message);
+                saveLocal(); 
+                if(!isSilent) alert("Sync Complete!");
+                if(!isSilent) renderView(document.querySelector('.view.active').id.replace('view-', ''));
+            } catch(e) { 
+                if(!isSilent) alert("Sync Error: " + e.message); 
+                throw e;
             }
+            finally { if(btn && !isSilent) { btn.disabled = false; btn.innerText = "☁️ Sync"; } }
         };
 
         window.exportData = () => { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify(localData)], {type: 'application/json'})); a.download = "PromptBackup.json"; a.click(); };
