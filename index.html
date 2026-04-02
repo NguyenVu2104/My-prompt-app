@@ -110,8 +110,9 @@
         
         <div class="card">
             <h3>Local Storage Management</h3>
-            <p style="font-size: 14px; color: #8e8e93; margin-top:0;">Clear local data when not in use. The system will automatically sync your data to Firebase before clearing.</p>
-            <button id="btnClear" class="btn btn-danger btn-block" onclick="clearLocalData()">🗑️ Sync & Clear Local Data</button>
+            <p style="font-size: 14px; color: #8e8e93; margin-top:0;">Manage your local device data. Force clearing will destroy unsynced changes.</p>
+            <button id="btnSyncClear" class="btn btn-danger btn-block" onclick="clearLocalData('sync')">☁️ Sync & Clear Local Data</button>
+            <button id="btnForceClear" class="btn btn-block" style="border: 1px solid var(--danger); color: var(--danger); background: transparent;" onclick="clearLocalData('wipe')">🗑️ Force Clear (No Sync)</button>
         </div>
 
         <div class="card">
@@ -292,7 +293,6 @@
 
             document.getElementById('btn-add-group').style.display = depth < 3 ? 'block' : 'none';
             document.getElementById('btn-add-lora').style.display = (!inCkptTree && depth < 3) ? 'block' : 'none';
-            // Removed !isInsideLora constraint here:
             document.getElementById('btn-add-tag').style.display = (!inCkptTree && activeGroupId !== null) ? 'block' : 'none';
             document.getElementById('btn-add-trigger').style.display = isInsideLora ? 'block' : 'none';
             document.getElementById('btn-add-ckpt').style.display = inCkptTree ? 'block' : 'none';
@@ -539,25 +539,37 @@
         };
 
         // --- LOCAL STORAGE MGT ---
-        window.clearLocalData = async () => {
-            if(confirm("WARNING: This will SYNC your current local state to Firebase first, then WIPE local data from this device. \n\nNote: If you deleted something locally by mistake, doing this will OVERWRITE the cloud copy and you cannot undo it. Proceed?")) {
-                const btn = document.getElementById('btnClear');
-                if(btn) { btn.disabled = true; btn.innerText = "⏳ Syncing & Wiping..."; }
-                
-                try {
-                    await syncApp(true); 
+        window.clearLocalData = async (mode) => {
+            if (mode === 'sync') {
+                if(confirm("This will SYNC your local state to Firebase, then WIPE local data. Proceed?")) {
+                    const btn = document.getElementById('btnSyncClear');
+                    if(btn) { btn.disabled = true; btn.innerText = "⏳ Syncing & Wiping..."; }
                     
+                    try {
+                        await syncApp(true); 
+                        
+                        localStorage.removeItem('promptAppPro');
+                        localData = { groups: {}, tags: {}, prompts: {}, tips: { content: "", timestamp: 0 } };
+                        initData();
+                        saveLocal();
+                        
+                        alert("Synced to cloud and local storage cleared successfully!");
+                        navigate('menu');
+                    } catch(e) {
+                        alert("Failed to clear data because sync encountered an error.");
+                    } finally {
+                        if(btn) { btn.disabled = false; btn.innerText = "☁️ Sync & Clear Local Data"; }
+                    }
+                }
+            } else if (mode === 'wipe') {
+                if(confirm("🚨 DANGER: This will wipe local data WITHOUT syncing. Unsynced changes will be LOST FOREVER. Proceed?")) {
                     localStorage.removeItem('promptAppPro');
                     localData = { groups: {}, tags: {}, prompts: {}, tips: { content: "", timestamp: 0 } };
                     initData();
                     saveLocal();
                     
-                    alert("Synced to cloud and local storage cleared successfully!");
+                    alert("Local storage forcefully wiped without syncing.");
                     navigate('menu');
-                } catch(e) {
-                    alert("Failed to clear data because sync encountered an error.");
-                } finally {
-                    if(btn) { btn.disabled = false; btn.innerText = "🗑️ Sync & Clear Local Data"; }
                 }
             }
         };
