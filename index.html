@@ -366,7 +366,7 @@
                 }
 
                 let catSelectHtml = '';
-                if (!isCkptRoot && !isCkpt) {
+                if (!checkCkptTree(id)) {
                     let opts = Object.entries(CATEGORIES).map(([k,v]) => `<option value="${k}" ${g.category == k ? 'selected' : ''}>${k}. ${v}</option>`).join('');
                     catSelectHtml = `<select style="font-size:10px; padding:2px; margin-top:2px; background:#2c2c2e; border:1px solid var(--border); color:#8e8e93; border-radius:4px; max-width: 140px; width: 100%;" onchange="updGroup('${id}', 'category', parseInt(this.value))" onclick="event.stopPropagation()">
                         ${opts}
@@ -778,10 +778,19 @@
             saveLocal(); document.getElementById('bulkInput').value = ""; alert("Import Successful!");
         };
 
-        // --- FIREBASE SYNC ---
+        // --- FIREBASE SYNC WITH PASSWORD ---
         window.syncApp = async function(isSilent = false) {
+            // Bước bảo mật 1.5: Yêu cầu mật khẩu "0" trước khi chạy API
+            const pwd = prompt("Nhập mật khẩu Database để xác thực (Security Level 1.5):");
+            if (pwd !== "0") {
+                const msg = "Sai mật khẩu hoặc đã hủy. Giao dịch đồng bộ bị từ chối.";
+                if (!isSilent) alert(msg);
+                throw new Error("Unauthorized");
+            }
+
             const btn = document.getElementById('btnSync');
             if(btn && !isSilent) { btn.disabled = true; btn.innerText = "⏳ Syncing..."; }
+            
             try {
                 const docRef = db.collection("AppData").doc(DOC_ID);
                 await db.runTransaction(async (t) => {
@@ -803,7 +812,11 @@
                     const localTips = localData.tips || { content: "", timestamp: 0 };
                     merged.tips = localTips.timestamp > cloudTips.timestamp ? localTips : cloudTips;
 
-                    t.set(docRef, merged); localData = merged;
+                    // Nhúng mật khẩu vào payload để Firebase Security Rules kiểm tra chéo
+                    merged.passcode = pwd; 
+
+                    t.set(docRef, merged); 
+                    localData = merged;
                     initData(); 
                 });
                 
