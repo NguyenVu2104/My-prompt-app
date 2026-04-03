@@ -79,6 +79,15 @@
     <div id="view-description" class="view">
         <div class="breadcrumbs"><span class="bc-item" onclick="goBack()">❮ Back</span> <span class="bc-sep">/</span> <span id="desc-title">Description</span></div>
         <div class="card">
+            
+            <div id="desc-ckpt-prompt-container" style="display:none; margin-bottom: 15px;">
+                <label style="font-size:12px; color:#ff9f0a; display:block; margin-bottom:5px; font-weight:bold;">Base Prompt (Checkpoint Only):</label>
+                <div style="display:flex; gap:5px;">
+                    <textarea id="descBasePrompt" rows="2" placeholder="e.g., score_9, score_8_up..." style="margin-bottom:0;"></textarea>
+                    <button class="btn btn-primary" onclick="navigator.clipboard.writeText(document.getElementById('descBasePrompt').value); alert('Copied!');">Copy</button>
+                </div>
+            </div>
+
             <label style="font-size:12px; color:#8e8e93; display:block; margin-bottom:5px;">Description:</label>
             <textarea id="descInputArea" rows="12" placeholder="Write description here..."></textarea>
             
@@ -113,6 +122,16 @@
             <p style="font-size: 14px; color: #8e8e93; margin-top:0;">Manage your local device data. Force clearing will destroy unsynced changes.</p>
             <button id="btnSyncClear" class="btn btn-danger btn-block" onclick="clearLocalData('sync')">☁️ Sync & Clear Local Data</button>
             <button id="btnForceClear" class="btn btn-block" style="border: 1px solid var(--danger); color: var(--danger); background: transparent;" onclick="clearLocalData('wipe')">🗑️ Force Clear (No Sync)</button>
+        </div>
+
+        <div class="card">
+            <h3>Export Text Template</h3>
+            <p style="font-size: 14px; color: #8e8e93; margin-top:0;">Generate a plain text tree mapping for quick review. Does not export metadata/links.</p>
+            <textarea id="textExportArea" rows="6" readonly placeholder="Output will appear here..."></textarea>
+            <div style="display:flex; gap:8px;">
+                <button class="btn btn-primary" style="flex:1;" onclick="generateTextExport()">Generate View</button>
+                <button class="btn btn-primary" style="flex:1;" onclick="navigator.clipboard.writeText(document.getElementById('textExportArea').value); alert('Copied!');">Copy</button>
+            </div>
         </div>
 
         <div class="card">
@@ -182,6 +201,13 @@
         const DOC_ID = "main_prompt_database";
         const CKPT_ROOT_ID = "ckpt_root_node";
 
+        const CATEGORIES = {
+            1: "View/Shot", 2: "Subject: Character", 3: "Subject: Penis", 4: "Subject: Pussy", 
+            5: "Subject: Testicles", 6: "Subject: Breasts", 7: "Subject: Anus", 8: "Subject: Pose/Actions", 
+            9: "Subject: Others", 10: "Medium/Art Form", 11: "Resolution/Detail", 12: "Style References", 
+            13: "Additional Details", 14: "Color Themes", 15: "Lighting/Shadow", 16: "Quality Terms", 17: "Mixed / Uncategorized"
+        };
+
         let localData = { groups: {}, tags: {}, prompts: {}, tips: { content: "", timestamp: 0 } };
         let activeGroupId = null; 
         let editingDescId = null; 
@@ -194,7 +220,7 @@
             if (!localData.groups[CKPT_ROOT_ID]) {
                 localData.groups[CKPT_ROOT_ID] = { 
                     name: "Checkpoint Model", type: "checkpoint_root", parentId: null, 
-                    sortIndex: -999999, description: "", links: "", rating: "", 
+                    sortIndex: -999999, description: "", links: "", rating: "", basePrompt: "",
                     timestamp: getTs(), isDeleted: false 
                 };
             }
@@ -339,10 +365,19 @@
                     `;
                 }
 
+                let catSelectHtml = '';
+                if (!isCkptRoot && !isCkpt) {
+                    let opts = Object.entries(CATEGORIES).map(([k,v]) => `<option value="${k}" ${g.category == k ? 'selected' : ''}>${k}. ${v}</option>`).join('');
+                    catSelectHtml = `<select style="font-size:10px; padding:2px; margin-top:2px; background:#2c2c2e; border:1px solid var(--border); color:#8e8e93; border-radius:4px; max-width: 140px; width: 100%;" onchange="updGroup('${id}', 'category', parseInt(this.value))" onclick="event.stopPropagation()">
+                        ${opts}
+                    </select>`;
+                }
+
                 html += `
                 <div class="list-item" ${clickAttr} style="${styleAttr}">
-                    <div class="list-item-content">
-                        ${badge} ${g.name}
+                    <div class="list-item-content" style="flex-direction:column; align-items:flex-start; gap:0;">
+                        <div style="display:flex; align-items:center; gap:8px;">${badge} ${g.name}</div>
+                        ${catSelectHtml}
                     </div>
                     ${showRatingInfo ? `<input type="text" class="rating-input" value="${g.rating || ''}" placeholder="Rate" onclick="event.stopPropagation()" onchange="updGroup('${id}', 'rating', this.value)">` : ''}
                     <div class="action-btns" onclick="event.stopPropagation()">
@@ -374,15 +409,22 @@
             if(!name) return alert("Please enter a name");
             const ts = getTs();
             if(type === 'group' || type === 'lora' || type === 'checkpoint') {
-                localData.groups[genId()] = { name, type, parentId: activeGroupId, sortIndex: ts, description: "", links: "", rating: "", timestamp: ts, isDeleted: false };
+                localData.groups[genId()] = { name, type, parentId: activeGroupId, sortIndex: ts, category: 17, description: "", links: "", rating: "", basePrompt: "", timestamp: ts, isDeleted: false };
             } else {
-                localData.tags[genId()] = { name, type, parentId: activeGroupId, weight: 1.0, checked: false, timestamp: ts, isDeleted: false };
+                localData.tags[genId()] = { name, type, parentId: activeGroupId, weight: 1.0, checked: false, selectedAt: 0, timestamp: ts, isDeleted: false };
             }
             saveLocal(); renderWorkspace(); document.getElementById('newItemName').value = "";
         };
 
         window.updGroup = (id, key, val) => { localData.groups[id][key] = val; localData.groups[id].timestamp = getTs(); saveLocal(); };
-        window.updTag = (id) => { localData.tags[id].checked = document.getElementById('chk_'+id).checked; localData.tags[id].weight = parseFloat(document.getElementById('w_'+id).value) || 1.0; localData.tags[id].timestamp = getTs(); saveLocal(); };
+        window.updTag = (id) => { 
+            const isChecked = document.getElementById('chk_'+id).checked;
+            localData.tags[id].checked = isChecked; 
+            if(isChecked) localData.tags[id].selectedAt = getTs();
+            localData.tags[id].weight = parseFloat(document.getElementById('w_'+id).value) || 1.0; 
+            localData.tags[id].timestamp = getTs(); 
+            saveLocal(); 
+        };
         window.renameItem = (collection, id) => { 
             if(id === CKPT_ROOT_ID) return;
             const newName = prompt("Rename:", localData[collection][id].name); 
@@ -512,9 +554,18 @@
         // --- DESCRIPTION PAGE LOGIC ---
         window.openDescPage = (id) => { 
             editingDescId = id; 
-            document.getElementById('descInputArea').value = localData.groups[id].description || ""; 
-            document.getElementById('linkInputArea').value = localData.groups[id].links || ""; 
-            document.getElementById('desc-title').innerText = localData.groups[id].name;
+            const g = localData.groups[id];
+            document.getElementById('descInputArea').value = g.description || ""; 
+            document.getElementById('linkInputArea').value = g.links || ""; 
+            document.getElementById('desc-title').innerText = g.name;
+            
+            if (g.type === 'checkpoint') {
+                document.getElementById('desc-ckpt-prompt-container').style.display = 'block';
+                document.getElementById('descBasePrompt').value = g.basePrompt || "";
+            } else {
+                document.getElementById('desc-ckpt-prompt-container').style.display = 'none';
+            }
+
             navigate('description');
         };
 
@@ -522,6 +573,9 @@
             if(editingDescId) { 
                 localData.groups[editingDescId].description = document.getElementById('descInputArea').value; 
                 localData.groups[editingDescId].links = document.getElementById('linkInputArea').value; 
+                if (localData.groups[editingDescId].type === 'checkpoint') {
+                    localData.groups[editingDescId].basePrompt = document.getElementById('descBasePrompt').value;
+                }
                 localData.groups[editingDescId].timestamp = getTs(); 
                 saveLocal(); 
                 alert("Description saved successfully!");
@@ -574,6 +628,40 @@
             }
         };
 
+        // --- EXPORT TEXT VIEW ---
+        window.generateTextExport = () => {
+            let output = [];
+            function traverse(parentId, depth) {
+                let childrenG = Object.keys(localData.groups).filter(k => localData.groups[k].parentId === parentId && !localData.groups[k].isDeleted);
+                childrenG.sort((a,b) => (localData.groups[a].sortIndex || 0) - (localData.groups[b].sortIndex || 0));
+                
+                let childrenT = Object.keys(localData.tags).filter(k => localData.tags[k].parentId === parentId && !localData.tags[k].isDeleted);
+                childrenT.sort((a,b) => {
+                    if(localData.tags[a].type === 'trigger' && localData.tags[b].type !== 'trigger') return -1;
+                    if(localData.tags[b].type === 'trigger' && localData.tags[a].type !== 'trigger') return 1;
+                    return localData.tags[a].name.localeCompare(localData.tags[b].name);
+                });
+
+                childrenG.forEach(gid => {
+                    const g = localData.groups[gid];
+                    if(g.type === 'checkpoint_root' || g.type === 'checkpoint') return; 
+                    
+                    let hashes = '#'.repeat(depth + 1);
+                    let prefix = g.type === 'lora' ? '[LORA] ' : '';
+                    output.push(`${hashes} ${prefix}${g.name}`);
+                    traverse(gid, depth + 1);
+                });
+
+                childrenT.forEach(tid => {
+                    const t = localData.tags[tid];
+                    let prefix = t.type === 'trigger' ? '! ' : '';
+                    output.push(`${prefix}${t.name}`);
+                });
+            }
+            traverse(null, 0);
+            document.getElementById('textExportArea').value = output.join('\n');
+        };
+
         // --- TIPS LOGIC ---
         window.saveTips = () => {
             localData.tips.content = document.getElementById('tipsInput').value;
@@ -583,38 +671,40 @@
         };
 
         // --- OUTPUT GENERATOR ---
-        function getRootGroup(id) {
-            let curr = id;
-            let safety = 0;
-            while(curr && localData.groups[curr] && localData.groups[curr].parentId !== null && safety < 10) { 
-                curr = localData.groups[curr].parentId; 
-                safety++;
-            }
-            return curr || "root";
-        }
-
         window.openModal = () => {
             generateOutputText();
             document.getElementById('modal-overlay').style.display = 'flex';
         };
 
         window.generateOutputText = () => {
-            let outputLines = {}; 
+            let categorizedTags = {}; 
+            for(let i=1; i<=17; i++) categorizedTags[i] = [];
+
             const useUnderscore = document.getElementById('toggleUnderscore').checked;
 
             Object.values(localData.tags).forEach(t => {
                 if(!t.isDeleted && t.checked) {
+                    let parentGrp = localData.groups[t.parentId];
+                    if(!parentGrp || checkCkptTree(t.parentId)) return; 
+
+                    let cat = parentGrp.category || 17;
                     let finalName = useUnderscore ? t.name.replace(/ /g, '_') : t.name;
                     const str = t.weight === 1.0 ? finalName : `(${finalName}:${t.weight})`;
-                    const rId = getRootGroup(t.parentId);
                     
-                    if(rId === CKPT_ROOT_ID) return; 
-
-                    if(!outputLines[rId]) outputLines[rId] = [];
-                    outputLines[rId].push(str);
+                    categorizedTags[cat].push({ text: str, time: t.selectedAt || 0 });
                 }
             });
-            document.getElementById('outputResult').value = Object.values(outputLines).map(arr => arr.join(", ") + ",").join("\n");
+
+            let finalOutput = [];
+            for(let i=1; i<=17; i++) {
+                if(categorizedTags[i].length > 0) {
+                    categorizedTags[i].sort((a, b) => a.time - b.time);
+                    let line = categorizedTags[i].map(x => x.text).join(", ");
+                    finalOutput.push(line);
+                }
+            }
+            
+            document.getElementById('outputResult').value = finalOutput.join(",\n") + (finalOutput.length > 0 ? "," : "");
         };
 
         window.closeModal = (id) => { document.getElementById(id).style.display = 'none'; };
@@ -624,10 +714,16 @@
         window.savePromptState = () => {
             const name = document.getElementById('saveName').value.trim();
             if(!name) return alert("Enter name!");
-            const state = {}; Object.keys(localData.tags).forEach(id => { if(localData.tags[id].checked) state[id] = localData.tags[id].weight; });
+            const state = {}; 
+            Object.keys(localData.tags).forEach(id => { 
+                if(localData.tags[id].checked) {
+                    state[id] = { weight: localData.tags[id].weight, time: localData.tags[id].selectedAt || 0 }; 
+                }
+            });
             localData.prompts[genId()] = { name, content: document.getElementById('outputResult').value, state, timestamp: getTs(), isDeleted: false };
             saveLocal(); closeModal('modal-overlay'); alert("Saved!");
         };
+
         window.renderStorage = () => {
             document.getElementById('ui-storage').innerHTML = Object.keys(localData.prompts).filter(id => !localData.prompts[id].isDeleted).map(id => {
                 const p = localData.prompts[id];
@@ -636,11 +732,18 @@
                     <button class="btn btn-danger" style="margin-top:5px;" onclick="deleteItem('prompts', '${id}'); renderStorage();">Delete</button></div>`;
             }).join('');
         };
+
         window.loadP = (id) => {
             const s = localData.prompts[id].state; const ts = getTs();
             Object.keys(localData.tags).forEach(tid => {
                 if(localData.tags[tid].isDeleted) return;
-                localData.tags[tid].checked = !!s[tid]; localData.tags[tid].weight = s[tid] || 1.0; localData.tags[tid].timestamp = ts;
+                const isChecked = s.hasOwnProperty(tid);
+                localData.tags[tid].checked = isChecked; 
+                if(isChecked) {
+                    localData.tags[tid].weight = typeof s[tid] === 'object' ? s[tid].weight : (s[tid] || 1.0); 
+                    localData.tags[tid].selectedAt = typeof s[tid] === 'object' ? s[tid].time : ts;
+                }
+                localData.tags[tid].timestamp = ts;
             });
             document.getElementById('toggleUnderscore').checked = false;
             saveLocal(); navigate('workspace');
@@ -663,13 +766,13 @@
                     let name = isLora ? rawName.substring(6).trim() : rawName;
                     let pId = level === 1 ? null : stack[level - 1];
                     let gid = genId();
-                    localData.groups[gid] = { name, type: isLora ? 'lora' : 'group', parentId: pId, sortIndex: importSortCounter++, description: "", links: "", rating: "", timestamp: importSortCounter, isDeleted: false };
+                    localData.groups[gid] = { name, type: isLora ? 'lora' : 'group', parentId: pId, sortIndex: importSortCounter++, category: 17, description: "", links: "", rating: "", basePrompt: "", timestamp: importSortCounter, isDeleted: false };
                     stack[level] = gid; stack.length = level + 1; 
                 } else {
                     let pId = stack.length > 0 ? stack[stack.length - 1] : null;
                     let isTrigger = l.startsWith('!');
                     let name = isTrigger ? l.substring(1).trim() : l;
-                    localData.tags[genId()] = { name, type: isTrigger ? 'trigger' : 'tag', parentId: pId, weight: 1.0, checked: false, timestamp: importSortCounter++, isDeleted: false };
+                    localData.tags[genId()] = { name, type: isTrigger ? 'trigger' : 'tag', parentId: pId, weight: 1.0, checked: false, selectedAt: 0, timestamp: importSortCounter++, isDeleted: false };
                 }
             });
             saveLocal(); document.getElementById('bulkInput').value = ""; alert("Import Successful!");
